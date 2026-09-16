@@ -145,16 +145,23 @@ function initAndroidButton() {
 
 // 5. Robust Dynamic Timestamps & Live PST Clock
 function initTimestamps() {
-  // ISO conversion failsafe for site last updated
+  // Regex pattern matching ISO dates (e.g. 2026-09-16T04:51:57.538Z)
+  const isoRegex = /\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z/;
+  const userTimezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+
   document.querySelectorAll('*').forEach(el => {
     if (el.children.length === 0) {
-      const text = el.textContent.trim();
-      if (text.includes('Z') && !isNaN(Date.parse(text)) && text.length > 20) {
-        const isoDate = new Date(text);
-        el.textContent = isoDate.toLocaleString(undefined, {
+      const match = el.textContent.match(isoRegex);
+      if (match) {
+        const rawIso = match[0];
+        const isoDate = new Date(rawIso);
+        const formattedDate = isoDate.toLocaleString(undefined, {
           dateStyle: 'medium',
           timeStyle: 'medium'
-        });
+        }) + ` (${userTimezone})`;
+
+        // Replace raw ISO string with formatted client time
+        el.textContent = el.textContent.replace(rawIso, formattedDate);
       }
     }
   });
@@ -172,7 +179,6 @@ function initTimestamps() {
     if (clockEl) {
       clockEl.textContent = nowPST + ' PST';
     } else {
-      // Fallback selector scanning for NUL2 if element hasn't updated yet
       document.querySelectorAll('*').forEach(el => {
         if (el.children.length === 0 && (el.textContent.trim() === 'NUL2' || el.textContent.includes('Loading PST...'))) {
           el.id = 'pst-live-clock';
