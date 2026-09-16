@@ -2,25 +2,27 @@ const workboxBuild = require('workbox-build');
 const fs = require('fs');
 
 async function buildSW() {
-  console.log('Automated Build Pipeline: Injecting scripts & cleaning Mobirise output...');
+  console.log('Automated Build Pipeline: Cleaning HTML, injecting tags, and replacing placeholders...');
   
   const htmlFiles = fs.readdirSync('./').filter(file => file.endsWith('.html'));
 
+  // Formatted GitHub build timestamp (Asia/Manila time)
   const now = new Date();
   const buildTimeString = now.toLocaleString('en-US', {
+    timeZone: 'Asia/Manila',
     dateStyle: 'medium',
     timeStyle: 'medium',
-    timeZoneName: 'short'
-  });
+    hour12: true
+  }) + ' PST';
 
   htmlFiles.forEach(file => {
     let content = fs.readFileSync(file, 'utf8');
 
-    // 1. Remove Mobirise backlinks and engine sections
+    // 1. Remove Mobirise backlinks and engine branding
     content = content.replace(/<a[^>]*href="https?:\/\/(www\.)?(mobirise\.com|mobiri\.se)[^"]*"[^>]*>[\s\S]*?<\/a>/gi, '');
     content = content.replace(/<section[^>]*class="[^"]*engine[^"]*"[^>]*>[\s\S]*?<\/section>/gi, '');
 
-    // 2. CSS Fail-Safe to hide any remaining Mobirise promo elements
+    // 2. Inject CSS Fail-Safe to hide any remaining Mobirise promo tags
     if (!content.includes('/* Mobirise Fail-Safe */')) {
       const styleInject = `
 <style id="mobirise-cleaner">
@@ -43,14 +45,14 @@ async function buildSW() {
       content = content.replace(/<\/head>/i, '  <link rel="manifest" href="manifest.json">\n</head>');
     }
 
-    // 4. Inject sw-register.js before </body>
+    // 4. Inject sw-register.js script right before </body>
     if (!content.includes('sw-register.js')) {
       content = content.replace(/<\/body>/i, '  <script src="sw-register.js"></script>\n</body>');
     }
 
-    // 5. Strict inline replacement for NUL1 and NUL2 (Prevents stripping structural tags)
-    content = content.replace(/(?:<b>|<strong>|<span>)?\s*NUL1\s*(?:<\/b>|<\/strong>|<\/span>)?/gi, `<span class="site-last-updated">${buildTimeString}</span>`);
-    content = content.replace(/(?:<b>|<strong>|<span>)?\s*NUL2\s*(?:<\/b>|<\/strong>|<\/span>)?/gi, '<span class="pst-live-clock">Loading PST...</span>');
+    // 5. Replace NUL1 with build timestamp and NUL2 with PST clock placeholder (handles normal & bold)
+    content = content.replace(/(?:<b[^>]*>|<strong[^>]*>|<span[^>]*>)*\s*NUL1\s*(?:<\/b>|<\/strong>|<\/span>)*/gi, `<span class="site-last-updated">${buildTimeString}</span>`);
+    content = content.replace(/(?:<b[^>]*>|<strong[^>]*>|<span[^>]*>)*\s*NUL2\s*(?:<\/b>|<\/strong>|<\/span>)*/gi, '<span class="pst-live-clock">Loading PST...</span>');
 
     fs.writeFileSync(file, content, 'utf8');
   });
@@ -112,7 +114,7 @@ async function buildSW() {
     ],
   });
 
-  console.log(`Successfully built sw.js: precached ${count} files (${size} bytes).`);
+  console.log(`Successfully generated sw.js: precached ${count} files (${size} bytes).`);
 }
 
 buildSW().catch(console.error);
