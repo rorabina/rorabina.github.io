@@ -2,7 +2,7 @@ const workboxBuild = require('workbox-build');
 const fs = require('fs');
 
 async function buildSW() {
-  console.log('Automated Build Pipeline: Injecting scripts & cleaning Mobirise output...');
+  console.log('Automated Build Pipeline: Injecting scripts, mobile desktop layout & cleaning output...');
   
   const htmlFiles = fs.readdirSync('./').filter(file => file.endsWith('.html'));
 
@@ -17,12 +17,19 @@ async function buildSW() {
   htmlFiles.forEach(file => {
     let content = fs.readFileSync(file, 'utf8');
 
-    // 1. Fully remove Mobirise backlinks AND their parent wrapping elements (p, div, section, container)
+    // 1. Force Desktop Viewport Scale for Mobile Devices
+    if (content.includes('<meta name="viewport"')) {
+      content = content.replace(/<meta name="viewport"[^>]*>/i, '<meta name="viewport" content="width=1200, initial-scale=0.35, maximum-scale=3.0, user-scalable=yes">');
+    } else {
+      content = content.replace(/<\/head>/i, '  <meta name="viewport" content="width=1200, initial-scale=0.35, maximum-scale=3.0, user-scalable=yes">\n</head>');
+    }
+
+    // 2. Remove Mobirise backlinks AND parent elements
     content = content.replace(/<(p|div|section|span)[^>]*>\s*<a[^>]*href="https?:\/\/(www\.)?(mobirise\.com|mobiri\.se)[^"]*"[^>]*>[\s\S]*?<\/a>\s*<\/\1>/gi, '');
     content = content.replace(/<a[^>]*href="https?:\/\/(www\.)?(mobirise\.com|mobiri\.se)[^"]*"[^>]*>[\s\S]*?<\/a>/gi, '');
     content = content.replace(/<section[^>]*class="[^"]*engine[^"]*"[^>]*>[\s\S]*?<\/section>/gi, '');
 
-    // 2. CSS Fail-Safe to completely collapse and remove layout space of residual Mobirise promo tags
+    // 3. Inject CSS Fail-Safe + Desktop Navbar Force Overrides
     if (!content.includes('/* Mobirise Fail-Safe */')) {
       const styleInject = `
 <style id="mobirise-cleaner">
@@ -39,29 +46,61 @@ async function buildSW() {
     opacity: 0 !important;
     overflow: hidden !important;
   }
+
+  /* Force Full Desktop Header & Disable Hamburger Menu on Mobile */
+  .navbar-toggler {
+    display: none !important;
+  }
+  .navbar-collapse {
+    display: flex !important;
+    flex-basis: auto !important;
+    visibility: visible !important;
+    opacity: 1 !important;
+  }
+  .navbar-nav {
+    flex-direction: row !important;
+  }
+  .navbar-nav .nav-item {
+    margin-left: 1rem !important;
+    margin-right: 1rem !important;
+  }
+
+  /* Text & Heading Proportional Scaling */
+  body {
+    font-size: 18px !important;
+  }
+  h1, .display-1 {
+    font-size: 2.8rem !important;
+  }
+  h2, .display-2 {
+    font-size: 2.2rem !important;
+  }
+  p, span, a {
+    line-height: 1.5 !important;
+  }
 </style>
 `;
       content = content.replace(/<\/head>/i, `${styleInject}\n</head>`);
     }
 
-    // 3. Inject Web App Manifest link into <head>
+    // 4. Inject Web App Manifest link into <head>
     if (!content.includes('rel="manifest"') && !content.includes('href="manifest.json"')) {
       content = content.replace(/<\/head>/i, '  <link rel="manifest" href="manifest.json">\n</head>');
     }
 
-    // 4. Inject sw-register.js script right before </body>
+    // 5. Inject sw-register.js script right before </body>
     if (!content.includes('sw-register.js')) {
       content = content.replace(/<\/body>/i, '  <script src="sw-register.js"></script>\n</body>');
     }
 
-    // 5. Inline replacement: Replaces NUL1 and NUL2 while preserving parent fonts, colors, and line positions
+    // 6. Inline replacement for NUL features
     content = content.replace(/NUL1/g, `<span class="site-last-updated" style="font:inherit; color:inherit;">${buildTimeString}</span>`);
     content = content.replace(/NUL2/g, '<span class="pst-live-clock" style="font:inherit; color:inherit;">Loading PST...</span>');
 
     fs.writeFileSync(file, content, 'utf8');
   });
 
-  // 6. Generate Workbox Service Worker
+  // 7. Generate Workbox Service Worker
   const { count, size } = await workboxBuild.generateSW({
     globDirectory: './',
     globPatterns: [
