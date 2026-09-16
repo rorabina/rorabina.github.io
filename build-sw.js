@@ -5,7 +5,7 @@ async function buildSW() {
   console.log('Cleaning HTML files, injecting manifest, adding sw-register, and building SW...');
   const htmlFiles = fs.readdirSync('./').filter(file => file.endsWith('.html'));
 
-  // Pre-format human-readable build timestamp
+  // Pre-format build timestamp for NUL1
   const now = new Date();
   const buildTimeString = now.toLocaleString('en-US', {
     dateStyle: 'medium',
@@ -16,11 +16,11 @@ async function buildSW() {
   htmlFiles.forEach(file => {
     let content = fs.readFileSync(file, 'utf8');
 
-    // 1. Remove Mobirise backlinks and promo engines cleanly without destroying footer structure
+    // 1. Strip Mobirise backlinks and engine badges cleanly
     content = content.replace(/<a[^>]*href="https?:\/\/(www\.)?(mobirise\.com|mobiri\.se)[^"]*"[^>]*>[\s\S]*?<\/a>/gi, '');
     content = content.replace(/<section[^>]*class="[^"]*engine[^"]*"[^>]*>[\s\S]*?<\/section>/gi, '');
 
-    // 2. Fix broken Capgo CapacitorUpdater CDN import if present
+    // 2. Fix Capgo CapacitorUpdater CDN import if present
     content = content.replace(
       /<script[^>]*type="module"[^>]*>[\s\S]*?import\s*\{\s*CapacitorUpdater\s*\}\s*from\s*['"]https:\/\/cdn\.jsdelivr\.net\/npm\/@capgo\/capacitor-updater[^'"]*['"];?[\s\S]*?<\/script>/gi,
       `<script>
@@ -33,7 +33,7 @@ async function buildSW() {
 </script>`
     );
 
-    // 3. Inject CSS Fail-Safe to hide any remaining Mobirise promo tags
+    // 3. Inject CSS Fail-Safe to hide lingering Mobirise branding/footers
     if (!content.includes('/* Mobirise Fail-Safe */')) {
       const styleInject = `
 <style id="mobirise-cleaner">
@@ -51,7 +51,7 @@ async function buildSW() {
       content = content.replace(/<\/head>/i, `${styleInject}\n</head>`);
     }
 
-    // 4. Inject Web App Manifest link safely if missing
+    // 4. Inject Web App Manifest link safely inside <head> if missing
     if (!content.includes('rel="manifest"') && !content.includes('href="manifest.json"')) {
       content = content.replace(/<\/head>/i, '  <link rel="manifest" href="manifest.json">\n</head>');
     }
@@ -61,8 +61,8 @@ async function buildSW() {
       content = content.replace(/<\/body>/i, '  <script src="sw-register.js"></script>\n</body>');
     }
 
-    // 6. Replace NUL placeholders
-    content = content.replace(/NUL1/g, buildTimeString);
+    // 6. Replace NUL placeholders (converts NUL1 to build time, NUL2 to live clock target)
+    content = content.replace(/NUL1/g, `<span id="site-last-updated">${buildTimeString}</span>`);
     content = content.replace(/NUL2/g, '<span id="pst-live-clock">Loading PST...</span>');
 
     fs.writeFileSync(file, content, 'utf8');
