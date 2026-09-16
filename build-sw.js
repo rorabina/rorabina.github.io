@@ -16,11 +16,11 @@ async function buildSW() {
   htmlFiles.forEach(file => {
     let content = fs.readFileSync(file, 'utf8');
 
-    // 1. Remove Mobirise backlinks and engine section tags
+    // 1. Remove Mobirise backlinks and engine sections
     content = content.replace(/<a[^>]*href="https?:\/\/(www\.)?(mobirise\.com|mobiri\.se)[^"]*"[^>]*>[\s\S]*?<\/a>/gi, '');
     content = content.replace(/<section[^>]*class="[^"]*engine[^"]*"[^>]*>[\s\S]*?<\/section>/gi, '');
 
-    // 2. Fix CapacitorUpdater import if present
+    // 2. Fix broken CapacitorUpdater import if present
     content = content.replace(
       /<script[^>]*type="module"[^>]*>[\s\S]*?import\s*\{\s*CapacitorUpdater\s*\}\s*from\s*['"]https:\/\/cdn\.jsdelivr\.net\/npm\/@capgo\/capacitor-updater[^'"]*['"];?[\s\S]*?<\/script>/gi,
       `<script>
@@ -61,9 +61,12 @@ async function buildSW() {
       content = content.replace(/<\/body>/i, '  <script src="sw-register.js"></script>\n</body>');
     }
 
-    // 6. Direct build-time substitution for NUL1 and NUL2
-    content = content.replace(/NUL1/g, `<span class="site-last-updated">${buildTimeString}</span>`);
-    content = content.replace(/NUL2/g, '<span class="pst-live-clock">Loading PST...</span>');
+    // 6. Multi-tag Regex Replacements for NUL1 and NUL2 (handles bold, italic, and inner spans)
+    const nul1Regex = /N\s*(?:<[^>]+>\s*)*U\s*(?:<[^>]+>\s*)*L\s*(?:<[^>]+>\s*)*1/gi;
+    const nul2Regex = /N\s*(?:<[^>]+>\s*)*U\s*(?:<[^>]+>\s*)*L\s*(?:<[^>]+>\s*)*2/gi;
+
+    content = content.replace(nul1Regex, `<span class="site-last-updated">${buildTimeString}</span>`);
+    content = content.replace(nul2Regex, '<span class="pst-live-clock">Loading PST...</span>');
 
     fs.writeFileSync(file, content, 'utf8');
   });
