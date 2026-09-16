@@ -3,10 +3,14 @@
   const isStandalone = window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone;
   if (!isStandalone) return;
 
+  function isIndexPage(path) {
+    return path === '/' || path === '' || path.endsWith('/index.html') || path.endsWith('index.html');
+  }
+
   function saveCurrentPage() {
     const currentPath = window.location.pathname;
     // Store path as long as it's not the root index page
-    if (currentPath && currentPath !== '/' && !currentPath.endsWith('index.html')) {
+    if (currentPath && !isIndexPage(currentPath)) {
       localStorage.setItem('pwa_last_page', currentPath);
     }
   }
@@ -16,7 +20,7 @@
     const lastPath = localStorage.getItem('pwa_last_page');
 
     // If currently on index/root but a saved route exists, navigate to it
-    if ((currentPath === '/' || currentPath.endsWith('index.html')) && lastPath && lastPath !== currentPath) {
+    if (isIndexPage(currentPath) && lastPath && !isIndexPage(lastPath) && lastPath !== currentPath) {
       window.location.replace(lastPath);
     }
   }
