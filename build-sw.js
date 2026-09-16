@@ -2,7 +2,7 @@ const workboxBuild = require('workbox-build');
 const fs = require('fs');
 
 async function buildSW() {
-  console.log('Automated Build Pipeline: Injecting scripts & cleaning Mobirise output...');
+  console.log('Automated Build Pipeline: Injecting mobile layout protections, copy locks, & cleaning output...');
   
   const htmlFiles = fs.readdirSync('./').filter(file => file.endsWith('.html'));
 
@@ -17,12 +17,20 @@ async function buildSW() {
   htmlFiles.forEach(file => {
     let content = fs.readFileSync(file, 'utf8');
 
-    // 1. Fully remove Mobirise backlinks AND their parent wrapping elements (p, div, section, container)
+    // 1. Force Disable Mobile Zooming (Viewport Lock)
+    const zoomLockViewport = '<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, shrink-to-fit=no">';
+    if (content.includes('<meta name="viewport"')) {
+      content = content.replace(/<meta name="viewport"[^>]*>/i, zoomLockViewport);
+    } else {
+      content = content.replace(/<\/head>/i, `  ${zoomLockViewport}\n</head>`);
+    }
+
+    // 2. Remove Mobirise backlinks AND parent wrapping tags
     content = content.replace(/<(p|div|section|span)[^>]*>\s*<a[^>]*href="https?:\/\/(www\.)?(mobirise\.com|mobiri\.se)[^"]*"[^>]*>[\s\S]*?<\/a>\s*<\/\1>/gi, '');
     content = content.replace(/<a[^>]*href="https?:\/\/(www\.)?(mobirise\.com|mobiri\.se)[^"]*"[^>]*>[\s\S]*?<\/a>/gi, '');
     content = content.replace(/<section[^>]*class="[^"]*engine[^"]*"[^>]*>[\s\S]*?<\/section>/gi, '');
 
-    // 2. CSS Fail-Safe to completely collapse and remove layout space of residual Mobirise promo tags
+    // 3. Inject CSS Fail-Safe + Disable Text Selection / Copying Rules
     if (!content.includes('/* Mobirise Fail-Safe */')) {
       const styleInject = `
 <style id="mobirise-cleaner">
@@ -39,29 +47,72 @@ async function buildSW() {
     opacity: 0 !important;
     overflow: hidden !important;
   }
+
+  /* Disable Selection & Touch Callouts for PWA */
+  *, html, body {
+    -webkit-user-select: none !important;
+    -moz-user-select: none !important;
+    -ms-user-select: none !important;
+    user-select: none !important;
+    -webkit-touch-callout: none !important;
+    touch-action: manipulation;
+    -webkit-text-size-adjust: 100%;
+  }
+
+  /* Keep input fields operable */
+  input, textarea {
+    -webkit-user-select: text !important;
+    -moz-user-select: text !important;
+    -ms-user-select: text !important;
+    user-select: text !important;
+  }
 </style>
+<script id="anti-zoom-and-copy-lock">
+  // Prevent iOS / Safari Pinch-to-Zoom Touch Gestures
+  document.addEventListener('touchmove', function (event) {
+    if (event.scale !== 1 && event.scale !== undefined) {
+      event.preventDefault();
+    }
+  }, { passive: false });
+
+  // Prevent Double-Tap Zoom
+  let lastTouchEnd = 0;
+  document.addEventListener('touchend', function (event) {
+    const now = (new Date()).getTime();
+    if (now - lastTouchEnd <= 300) {
+      event.preventDefault();
+    }
+    lastTouchEnd = now;
+  }, false);
+
+  // Prevent Clipboard Actions & Context Menus
+  document.addEventListener('copy', (e) => e.preventDefault());
+  document.addEventListener('cut', (e) => e.preventDefault());
+  document.addEventListener('paste', (e) => e.preventDefault());
+  document.addEventListener('contextmenu', (e) => e.preventDefault());
+</script>
 `;
       content = content.replace(/<\/head>/i, `${styleInject}\n</head>`);
     }
 
-    // 3. Inject Web App Manifest link into <head>
+    // 4. Inject Web App Manifest link into <head>
     if (!content.includes('rel="manifest"') && !content.includes('href="manifest.json"')) {
       content = content.replace(/<\/head>/i, '  <link rel="manifest" href="manifest.json">\n</head>');
     }
 
-    // 4. Inject sw-register.js script right before </body>
+    // 5. Inject sw-register.js script right before </body>
     if (!content.includes('sw-register.js')) {
       content = content.replace(/<\/body>/i, '  <script src="sw-register.js"></script>\n</body>');
     }
 
-    // 5. Inline replacement: Replaces NUL1 and NUL2 while preserving parent fonts, colors, and line positions
+    // 6. Inline replacement for NUL features
     content = content.replace(/NUL1/g, `<span class="site-last-updated" style="font:inherit; color:inherit;">${buildTimeString}</span>`);
     content = content.replace(/NUL2/g, '<span class="pst-live-clock" style="font:inherit; color:inherit;">Loading PST...</span>');
 
     fs.writeFileSync(file, content, 'utf8');
   });
 
-  // 6. Generate Workbox Service Worker
+  // 7. Generate Workbox Service Worker
   const { count, size } = await workboxBuild.generateSW({
     globDirectory: './',
     globPatterns: [
@@ -86,7 +137,6 @@ async function buildSW() {
     skipWaiting: true,
     cleanupOutdatedCaches: true,
     maximumFileSizeToCacheInBytes: 25 * 1024 * 1024,
-    navigateFallback: 'index.html',
     runtimeCaching: [
       {
         urlPattern: ({ request }) => request.mode === 'navigate',
