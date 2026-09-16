@@ -143,44 +143,47 @@ function initAndroidButton() {
   }
 }
 
-// 5. Flexible Dynamic Timestamp Handler
+// 5. Robust Dynamic Timestamps & Live PST Clock
 function initTimestamps() {
-  // Convert ISO string (NUL1) to User's Local Timezone
-  const allElements = document.querySelectorAll('h1, h2, h3, h4, p, span, div');
-  
-  allElements.forEach(el => {
+  // ISO conversion failsafe for site last updated
+  document.querySelectorAll('*').forEach(el => {
     if (el.children.length === 0) {
       const text = el.textContent.trim();
-      // Match ISO timestamp string injected by build-sw.js
       if (text.includes('Z') && !isNaN(Date.parse(text)) && text.length > 20) {
         const isoDate = new Date(text);
-        const userTimezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
         el.textContent = isoDate.toLocaleString(undefined, {
           dateStyle: 'medium',
           timeStyle: 'medium'
-        }) + ` (${userTimezone})`;
+        });
       }
     }
   });
 
-  // Live Philippine Standard Time (GMT+8) Clock replacing NUL2 with ticking seconds
-  function updatePSTClock() {
-    allElements.forEach(el => {
-      if (el.children.length === 0 && (el.textContent.trim() === 'NUL2' || el.classList.contains('pst-live-clock'))) {
-        el.classList.add('pst-live-clock');
-        const nowPST = new Date().toLocaleString('en-US', {
-          timeZone: 'Asia/Manila',
-          dateStyle: 'medium',
-          timeStyle: 'medium',
-          hour12: true
-        });
-        el.textContent = nowPST + ' PST';
-      }
+  // Ticking Philippine Standard Time Clock
+  function tickPST() {
+    const clockEl = document.getElementById('pst-live-clock');
+    const nowPST = new Date().toLocaleString('en-US', {
+      timeZone: 'Asia/Manila',
+      dateStyle: 'medium',
+      timeStyle: 'medium',
+      hour12: true
     });
+
+    if (clockEl) {
+      clockEl.textContent = nowPST + ' PST';
+    } else {
+      // Fallback selector scanning for NUL2 if element hasn't updated yet
+      document.querySelectorAll('*').forEach(el => {
+        if (el.children.length === 0 && (el.textContent.trim() === 'NUL2' || el.textContent.includes('Loading PST...'))) {
+          el.id = 'pst-live-clock';
+          el.textContent = nowPST + ' PST';
+        }
+      });
+    }
   }
 
-  updatePSTClock();
-  setInterval(updatePSTClock, 1000); // Live tick every second
+  tickPST();
+  setInterval(tickPST, 1000);
 }
 
 if (document.readyState === 'loading') {
