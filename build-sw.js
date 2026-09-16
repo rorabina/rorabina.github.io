@@ -5,6 +5,9 @@ async function buildSW() {
   console.log('Cleaning HTML files, injecting manifest, adding sw-register, and building SW...');
   const htmlFiles = fs.readdirSync('./').filter(file => file.endsWith('.html'));
 
+  // Record exact ISO build timestamp for client local timezone conversion
+  const buildTimeISO = new Date().toISOString();
+
   htmlFiles.forEach(file => {
     let content = fs.readFileSync(file, 'utf8');
 
@@ -56,10 +59,13 @@ async function buildSW() {
       content = content.replace(/<\/body>/i, '  <script src="sw-register.js"></script>\n</body>');
     }
 
+    // 7. Inject Build Timestamp for NUL1
+    content = content.replace(/NUL1/g, buildTimeISO);
+
     fs.writeFileSync(file, content, 'utf8');
   });
 
-  // 7. Generate Workbox Service Worker
+  // 8. Generate Workbox Service Worker
   const { count, size } = await workboxBuild.generateSW({
     globDirectory: './',
     globPatterns: [
@@ -118,30 +124,39 @@ async function buildSW() {
 
   console.log(`Generated sw.js: precatching ${count} files (${size} bytes).`);
 
-  // 8. Inject BroadcastChannel Progress Reporting into generated sw.js
+  // 9. Inject Progress Reporting into sw.js
   const swPath = './sw.js';
   if (fs.existsSync(swPath)) {
     let swCode = fs.readFileSync(swPath, 'utf8');
     const trackingScript = `
 
-/* --- Progress Broadcast Tracking Extension --- */
-const pwaBroadcast = new BroadcastChannel('pwa-cache-channel');
+/* --- Progress Reporting Extension --- */
+let totalPrecacheItems = ${count};
 
-self.addEventListener('install', (event) => {
-  const totalItems = ${count};
-  let loadedItems = 0;
-
-  // Intercept asset fetching during install phase
-  event.waitUntil(
-    caches.open(workbox.core.cacheNames.precache).then(async (cache) => {
-      const keys = await cache.keys();
-      pwaBroadcast.postMessage({ type: 'CACHE_PROGRESS', percent: Math.round((keys.length / totalItems) * 100), total: totalItems });
-    })
-  );
+self.addEventListener('message', (event) => {
+  if (event.data && event.data.type === 'GET_CACHE_PROGRESS') {
+    broadcastProgress();
+  }
 });
+
+function broadcastProgress() {
+  caches.open(workbox.core.cacheNames.precache).then((cache) => {
+    cache.keys().then((keys) => {
+      self.clients.matchAll().then((clients) => {
+        clients.forEach((client) => {
+          client.postMessage({
+            type: 'CACHE_PROGRESS',
+            current: keys.length,
+            total: totalPrecacheItems
+          });
+        });
+      });
+    });
+  });
+}
 `;
     fs.writeFileSync(swPath, swCode + trackingScript, 'utf8');
-    console.log('Successfully injected BroadcastChannel tracking into sw.js');
+    console.log('Successfully injected progress tracking listener into sw.js');
   }
 }
 
