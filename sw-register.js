@@ -9,8 +9,10 @@
 
   function saveCurrentPage() {
     const currentPath = window.location.pathname;
-    // Store path as long as it's not the root index page
-    if (currentPath && !isIndexPage(currentPath)) {
+    if (isIndexPage(currentPath)) {
+      // Clear saved page if user explicitly navigated to index
+      localStorage.removeItem('pwa_last_page');
+    } else if (currentPath) {
       localStorage.setItem('pwa_last_page', currentPath);
     }
   }
@@ -19,19 +21,36 @@
     const currentPath = window.location.pathname;
     const lastPath = localStorage.getItem('pwa_last_page');
 
-    // If currently on index/root but a saved route exists, navigate to it
-    if (isIndexPage(currentPath) && lastPath && !isIndexPage(lastPath) && lastPath !== currentPath) {
+    // Only restore last visited page if one is saved in storage
+    if (isIndexPage(currentPath) && lastPath && !isIndexPage(lastPath)) {
       window.location.replace(lastPath);
     }
   }
 
-  // 1. Immediately save current page on load
+  // Clear memory when clicking Home links or Logo
+  function attachHomeLinkListeners() {
+    const homeLinks = document.querySelectorAll('a[href="/"], a[href$="index.html"], .navbar-brand, a.nav-link[href*="index"]');
+    homeLinks.forEach(link => {
+      link.addEventListener('click', () => {
+        localStorage.removeItem('pwa_last_page');
+      });
+    });
+  }
+
+  // 1. Immediately evaluate current route
   saveCurrentPage();
 
-  // 2. Restore last visited page on cold launch
+  // 2. Restore last visited page on initial load if present
   restoreLastPage();
 
-  // 3. Handle Android background-to-foreground resume events
+  // 3. Attach listeners to Home buttons
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', attachHomeLinkListeners);
+  } else {
+    attachHomeLinkListeners();
+  }
+
+  // 4. Handle Android background-to-foreground resume events
   document.addEventListener('visibilitychange', () => {
     if (document.visibilityState === 'visible') {
       restoreLastPage();
