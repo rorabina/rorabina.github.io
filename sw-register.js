@@ -143,19 +143,18 @@ function initAndroidButton() {
   }
 }
 
-// 5. Dynamic Timestamps, PST Clock & Mobirise Footer Cleaner
+// 5. Hero Block Timestamps & Live PST Clock
 function initTimestampsAndFixes() {
-  // Strip any dynamic Mobirise promo tags on render
-  document.querySelectorAll('a[href*="mobirise.com"], a[href*="mobiri.se"], .cid-mobirise, section[class*="engine"]').forEach(el => el.remove());
+  // Strip any lingering promo links
+  document.querySelectorAll('a[href*="mobirise.com"], a[href*="mobiri.se"]').forEach(el => el.remove());
 
-  // ISO regex pattern matching raw timestamps
-  const isoRegex = /\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z/;
+  // Dynamic fallback for NUL1 (Site Last Updated) on client-side
   const userTimezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+  const isoRegex = /\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z/;
 
   document.querySelectorAll('*').forEach(el => {
     if (el.children.length === 0) {
-      const text = el.textContent;
-      const match = text.match(isoRegex);
+      const match = el.textContent.match(isoRegex);
       if (match) {
         const rawIso = match[0];
         const isoDate = new Date(rawIso);
@@ -164,12 +163,12 @@ function initTimestampsAndFixes() {
           timeStyle: 'medium'
         }) + ` (${userTimezone})`;
 
-        el.textContent = text.replace(rawIso, formattedDate);
+        el.textContent = el.textContent.replace(rawIso, formattedDate);
       }
     }
   });
 
-  // Ticking Rabina/Philippine Standard Time Clock with seconds
+  // Ticking Rabina / Philippine Standard Time Clock for NUL2
   function tickPST() {
     const clockEl = document.getElementById('pst-live-clock');
     const nowPST = new Date().toLocaleString('en-US', {
@@ -182,6 +181,7 @@ function initTimestampsAndFixes() {
     if (clockEl) {
       clockEl.textContent = nowPST + ' PST';
     } else {
+      // Scan fallback for NUL2 placeholder text
       document.querySelectorAll('*').forEach(el => {
         if (el.children.length === 0 && (el.textContent.trim() === 'NUL2' || el.textContent.includes('Loading PST...'))) {
           el.id = 'pst-live-clock';
