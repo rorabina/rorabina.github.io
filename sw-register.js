@@ -143,44 +143,10 @@ function initAndroidButton() {
   }
 }
 
-// 5. Dynamic Client-Side Scanner for NUL1 and NUL2 (index.html, dev.html, about.html)
-function processNulPlaceholders() {
+// 5. Client-side Live PST Clock Ticker (Asia/Manila)
+function startLivePstClock() {
+  // Clean up any lingering Mobirise branding
   document.querySelectorAll('a[href*="mobirise.com"], a[href*="mobiri.se"]').forEach(el => el.remove());
-
-  const userTimezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
-  const clientFormattedTime = new Date().toLocaleString(undefined, {
-    dateStyle: 'medium',
-    timeStyle: 'medium'
-  }) + ` (${userTimezone})`;
-
-  const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT, null, false);
-  let node;
-  const targets = [];
-
-  while (node = walker.nextNode()) {
-    if (node.nodeValue.includes('NUL1') || node.nodeValue.includes('NUL2')) {
-      targets.push(node);
-    }
-  }
-
-  targets.forEach(textNode => {
-    const parent = textNode.parentNode;
-    if (!parent) return;
-
-    if (textNode.nodeValue.includes('NUL1')) {
-      const span = document.createElement('span');
-      span.className = 'site-last-updated';
-      span.textContent = clientFormattedTime;
-      parent.replaceChild(span, textNode);
-    }
-
-    if (textNode.nodeValue.includes('NUL2')) {
-      const span = document.createElement('span');
-      span.className = 'pst-live-clock';
-      span.textContent = 'Loading PST...';
-      parent.replaceChild(span, textNode);
-    }
-  });
 
   function updatePstClocks() {
     const nowPST = new Date().toLocaleString('en-US', {
@@ -202,9 +168,9 @@ function processNulPlaceholders() {
 if (document.readyState === 'loading') {
   document.addEventListener('DOMContentLoaded', () => {
     initAndroidButton();
-    processNulPlaceholders();
+    startLivePstClock();
   });
 } else {
   initAndroidButton();
-  processNulPlaceholders();
+  startLivePstClock();
 }
