@@ -143,9 +143,16 @@ function initAndroidButton() {
   }
 }
 
-// 5. Client-side Live PST Clock Ticker (Asia/Manila)
+// 5. Client-side Live PST Clock Ticker & Container Space Cleaner
 function startLivePstClock() {
-  document.querySelectorAll('a[href*="mobirise.com"], a[href*="mobiri.se"]').forEach(el => el.remove());
+  // Removes Mobirise links AND collapses their parent wrapping tags if left empty
+  document.querySelectorAll('a[href*="mobirise.com"], a[href*="mobiri.se"]').forEach(el => {
+    const parent = el.parentElement;
+    el.remove();
+    if (parent && parent.textContent.trim() === '') {
+      parent.remove();
+    }
+  });
 
   function updatePstClocks() {
     const nowPST = new Date().toLocaleString('en-US', {
