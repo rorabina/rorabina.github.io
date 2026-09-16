@@ -2,7 +2,7 @@
   "id": "/",
   "name": "Rorabina",
   "short_name": "Rorabina",
-  "start_url": "/",
+  "start_url": ".",
   "scope": "/",
   "display": "standalone",
   "orientation": "portrait",
