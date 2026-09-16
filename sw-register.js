@@ -57,13 +57,13 @@ if ('serviceWorker' in navigator) {
       document.body.appendChild(barContainer);
     }
 
-    // 2. Service Worker Registration with Immediate Update Check
+    // 2. Register Service Worker
     navigator.serviceWorker.register('/sw.js').then(reg => {
       console.log('SW Registered:', reg.scope);
-      reg.update(); // Force check for updated SW script
+      reg.update();
     }).catch(err => console.error('SW Registration Failed:', err));
 
-    // 3. Monitor Offline Cache Progress
+    // 3. Monitor Cache Progress
     let checkInterval = setInterval(async () => {
       try {
         const cacheKeys = await caches.keys();
@@ -115,7 +115,6 @@ if ('serviceWorker' in navigator) {
 
 // 4. Scoped Android Install Button Handling for app.html
 let deferredPrompt;
-
 window.addEventListener('beforeinstallprompt', (e) => {
   e.preventDefault();
   deferredPrompt = e;
@@ -144,9 +143,8 @@ function initAndroidButton() {
   }
 }
 
-// 5. Universal Client-Side Formatted/Bold NUL1 & NUL2 Scanner (Index, Dev, About)
+// 5. Dynamic Client-Side Scanner for NUL1 and NUL2 (index.html, dev.html, about.html)
 function processNulPlaceholders() {
-  // Strip dynamic Mobirise backlinks on load
   document.querySelectorAll('a[href*="mobirise.com"], a[href*="mobiri.se"]').forEach(el => el.remove());
 
   const userTimezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
@@ -155,24 +153,35 @@ function processNulPlaceholders() {
     timeStyle: 'medium'
   }) + ` (${userTimezone})`;
 
-  const nul1Regex = /N\s*(?:<[^>]+>\s*)*U\s*(?:<[^>]+>\s*)*L\s*(?:<[^>]+>\s*)*1/gi;
-  const nul2Regex = /N\s*(?:<[^>]+>\s*)*U\s*(?:<[^>]+>\s*)*L\s*(?:<[^>]+>\s*)*2/gi;
+  const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT, null, false);
+  let node;
+  const targets = [];
 
-  // Scan text containers across all pages
-  document.querySelectorAll('p, span, div, h1, h2, h3, h4, h5, h6, li, td').forEach(el => {
-    if (el.children.length > 0 && Array.from(el.children).some(child => child.classList.contains('site-last-updated') || child.classList.contains('pst-live-clock'))) {
-      return;
+  while (node = walker.nextNode()) {
+    if (node.nodeValue.includes('NUL1') || node.nodeValue.includes('NUL2')) {
+      targets.push(node);
+    }
+  }
+
+  targets.forEach(textNode => {
+    const parent = textNode.parentNode;
+    if (!parent) return;
+
+    if (textNode.nodeValue.includes('NUL1')) {
+      const span = document.createElement('span');
+      span.className = 'site-last-updated';
+      span.textContent = clientFormattedTime;
+      parent.replaceChild(span, textNode);
     }
 
-    if (nul1Regex.test(el.innerHTML)) {
-      el.innerHTML = el.innerHTML.replace(nul1Regex, `<span class="site-last-updated">${clientFormattedTime}</span>`);
-    }
-    if (nul2Regex.test(el.innerHTML)) {
-      el.innerHTML = el.innerHTML.replace(nul2Regex, '<span class="pst-live-clock">Loading PST...</span>');
+    if (textNode.nodeValue.includes('NUL2')) {
+      const span = document.createElement('span');
+      span.className = 'pst-live-clock';
+      span.textContent = 'Loading PST...';
+      parent.replaceChild(span, textNode);
     }
   });
 
-  // Ticking Rabina Standard Time Clock (Asia/Manila)
   function updatePstClocks() {
     const nowPST = new Date().toLocaleString('en-US', {
       timeZone: 'Asia/Manila',
