@@ -2,7 +2,9 @@ const workboxBuild = require('workbox-build');
 const fs = require('fs');
 
 async function buildSW() {
-  console.log('Cleaning HTML files, injecting manifest, adding sw-register, and building SW...');
+  console.log('Automated Build Pipeline: Injecting scripts & cleaning Mobirise output...');
+  
+  // Grab every HTML file exported by Mobirise (index, about, dev, etc.)
   const htmlFiles = fs.readdirSync('./').filter(file => file.endsWith('.html'));
 
   const now = new Date();
@@ -15,24 +17,11 @@ async function buildSW() {
   htmlFiles.forEach(file => {
     let content = fs.readFileSync(file, 'utf8');
 
-    // 1. Remove Mobirise promos cleanly without breaking section tags
+    // 1. Remove Mobirise backlinks and promo code
     content = content.replace(/<a[^>]*href="https?:\/\/(www\.)?(mobirise\.com|mobiri\.se)[^"]*"[^>]*>[\s\S]*?<\/a>/gi, '');
     content = content.replace(/<section[^>]*class="[^"]*engine[^"]*"[^>]*>[\s\S]*?<\/section>/gi, '');
 
-    // 2. Fix CapacitorUpdater import if present
-    content = content.replace(
-      /<script[^>]*type="module"[^>]*>[\s\S]*?import\s*\{\s*CapacitorUpdater\s*\}\s*from\s*['"]https:\/\/cdn\.jsdelivr\.net\/npm\/@capgo\/capacitor-updater[^'"]*['"];?[\s\S]*?<\/script>/gi,
-      `<script>
-  document.addEventListener('deviceready', () => {
-    const { CapacitorUpdater } = window.Capacitor?.Plugins || {};
-    if (CapacitorUpdater) {
-      CapacitorUpdater.notifyAppReady();
-    }
-  });
-</script>`
-    );
-
-    // 3. Inject CSS Fail-Safe to hide lingering Mobirise branding
+    // 2. CSS Fail-Safe to hide any residual Mobirise branding tags
     if (!content.includes('/* Mobirise Fail-Safe */')) {
       const styleInject = `
 <style id="mobirise-cleaner">
@@ -50,27 +39,28 @@ async function buildSW() {
       content = content.replace(/<\/head>/i, `${styleInject}\n</head>`);
     }
 
-    // 4. Inject Web App Manifest link safely into <head>
+    // 3. Force-inject manifest link if missing
     if (!content.includes('rel="manifest"') && !content.includes('href="manifest.json"')) {
       content = content.replace(/<\/head>/i, '  <link rel="manifest" href="manifest.json">\n</head>');
     }
 
-    // 5. Inject sw-register.js before </body>
+    // 4. Force-inject sw-register.js script before </body> so Mobirise can't strip it
     if (!content.includes('sw-register.js')) {
       content = content.replace(/<\/body>/i, '  <script src="sw-register.js"></script>\n</body>');
     }
 
-    // 6. Build-time Regex Replacement for NUL1 and NUL2 (handles formatting and spaces)
+    // 5. Build-Time Replace for NUL1 and NUL2 (handles plain, bold <b>NUL1</b>, or inner <span> tags)
     const nul1Regex = /N\s*(?:<[^>]+>\s*)*U\s*(?:<[^>]+>\s*)*L\s*(?:<[^>]+>\s*)*1/gi;
     const nul2Regex = /N\s*(?:<[^>]+>\s*)*U\s*(?:<[^>]+>\s*)*L\s*(?:<[^>]+>\s*)*2/gi;
 
     content = content.replace(nul1Regex, `<span class="site-last-updated">${buildTimeString}</span>`);
     content = content.replace(nul2Regex, '<span class="pst-live-clock">Loading PST...</span>');
 
+    // Overwrite the file on disk during build
     fs.writeFileSync(file, content, 'utf8');
   });
 
-  // 7. Generate Workbox Service Worker
+  // 6. Generate SW Precache Build
   const { count, size } = await workboxBuild.generateSW({
     globDirectory: './',
     globPatterns: [
@@ -127,7 +117,7 @@ async function buildSW() {
     ],
   });
 
-  console.log(`Generated sw.js: precatching ${count} files (${size} bytes).`);
+  console.log(`Successfully built sw.js: cached ${count} files (${size} bytes).`);
 }
 
 buildSW().catch(console.error);
