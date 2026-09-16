@@ -4,11 +4,10 @@
   "short_name": "Rorabina",
   "start_url": "./index.html",
   "scope": "/",
-  "display": "fullscreen",
-  "display_override": ["fullscreen", "minimal-ui", "standalone"],
+  "display": "standalone",
   "orientation": "portrait",
   "background_color": "#ffffff",
-  "theme_color": "#ffffff",
+  "theme_color": "#000000",
   "icons": [
     {
       "src": "/assets/images/logo-rorabina-512x512.png",
