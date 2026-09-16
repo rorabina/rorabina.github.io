@@ -143,9 +143,9 @@ function initAndroidButton() {
   }
 }
 
-// 5. Global NUL1 & NUL2 Processor (Runs on index.html and dev.html)
+// 5. Universal Formatted/Bold NUL1 & NUL2 Processor
 function processNulPlaceholders() {
-  // Clean dynamic Mobirise promos
+  // Strip dynamic Mobirise promos
   document.querySelectorAll('a[href*="mobirise.com"], a[href*="mobiri.se"]').forEach(el => el.remove());
 
   const userTimezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
@@ -154,33 +154,20 @@ function processNulPlaceholders() {
     timeStyle: 'medium'
   }) + ` (${userTimezone})`;
 
-  // Universal DOM Text Node Scan
-  const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT, null, false);
-  let node;
-  const targets = [];
+  const nul1Regex = /N\s*(?:<[^>]+>\s*)*U\s*(?:<[^>]+>\s*)*L\s*(?:<[^>]+>\s*)*1/gi;
+  const nul2Regex = /N\s*(?:<[^>]+>\s*)*U\s*(?:<[^>]+>\s*)*L\s*(?:<[^>]+>\s*)*2/gi;
 
-  while (node = walker.nextNode()) {
-    if (node.nodeValue.includes('NUL1') || node.nodeValue.includes('NUL2')) {
-      targets.push(node);
-    }
-  }
-
-  targets.forEach(textNode => {
-    const parent = textNode.parentNode;
-    if (!parent) return;
-
-    if (textNode.nodeValue.includes('NUL1')) {
-      const span = document.createElement('span');
-      span.className = 'site-last-updated';
-      span.textContent = clientFormattedTime;
-      parent.replaceChild(span, textNode);
+  // Scan all container elements on index.html, dev.html, about.html, etc.
+  document.querySelectorAll('p, span, div, h1, h2, h3, h4, h5, h6, li, td').forEach(el => {
+    if (el.children.length > 0 && Array.from(el.children).some(child => child.classList.contains('site-last-updated') || child.classList.contains('pst-live-clock'))) {
+      return;
     }
 
-    if (textNode.nodeValue.includes('NUL2')) {
-      const span = document.createElement('span');
-      span.className = 'pst-live-clock';
-      span.textContent = 'Loading PST...';
-      parent.replaceChild(span, textNode);
+    if (nul1Regex.test(el.innerHTML)) {
+      el.innerHTML = el.innerHTML.replace(nul1Regex, `<span class="site-last-updated">${clientFormattedTime}</span>`);
+    }
+    if (nul2Regex.test(el.innerHTML)) {
+      el.innerHTML = el.innerHTML.replace(nul2Regex, '<span class="pst-live-clock">Loading PST...</span>');
     }
   });
 
