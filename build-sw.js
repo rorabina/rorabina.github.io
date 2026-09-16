@@ -5,7 +5,7 @@ async function buildSW() {
   console.log('Cleaning HTML files, injecting manifest, adding sw-register, and building SW...');
   const htmlFiles = fs.readdirSync('./').filter(file => file.endsWith('.html'));
 
-  // Pre-format human readable build timestamp in UTC/PST
+  // Pre-format human-readable build timestamp
   const now = new Date();
   const buildTimeString = now.toLocaleString('en-US', {
     dateStyle: 'medium',
@@ -16,14 +16,11 @@ async function buildSW() {
   htmlFiles.forEach(file => {
     let content = fs.readFileSync(file, 'utf8');
 
-    // 1. Remove Mobirise engine sections, containers, and backlinks completely
-    content = content.replace(/<(section|div|footer|p)[^>]*>(?:(?!<\/(?:section|div|footer|p)>)[\s\S])*?href="https?:\/\/(www\.)?(mobirise\.com|mobiri\.se)[^"]*"[\s\S]*?<\/\1>/gi, '');
+    // 1. Remove Mobirise backlinks and promo engines cleanly without destroying footer structure
     content = content.replace(/<a[^>]*href="https?:\/\/(www\.)?(mobirise\.com|mobiri\.se)[^"]*"[^>]*>[\s\S]*?<\/a>/gi, '');
+    content = content.replace(/<section[^>]*class="[^"]*engine[^"]*"[^>]*>[\s\S]*?<\/section>/gi, '');
 
-    // 2. Remove duplicate inline PWA installers from app.html
-    content = content.replace(/<script[^>]*id="pwa-android-installer"[^>]*>[\s\S]*?<\/script>/gi, '');
-
-    // 3. Fix broken Capgo CapacitorUpdater CDN import
+    // 2. Fix broken Capgo CapacitorUpdater CDN import if present
     content = content.replace(
       /<script[^>]*type="module"[^>]*>[\s\S]*?import\s*\{\s*CapacitorUpdater\s*\}\s*from\s*['"]https:\/\/cdn\.jsdelivr\.net\/npm\/@capgo\/capacitor-updater[^'"]*['"];?[\s\S]*?<\/script>/gi,
       `<script>
@@ -36,12 +33,12 @@ async function buildSW() {
 </script>`
     );
 
-    // 4. Inject CSS Fail-Safe
+    // 3. Inject CSS Fail-Safe to hide any remaining Mobirise promo tags
     if (!content.includes('/* Mobirise Fail-Safe */')) {
       const styleInject = `
 <style id="mobirise-cleaner">
   /* Mobirise Fail-Safe */
-  [class*="engine"], [id*="mobirise"], a[href*="mobiri.se"], a[href*="mobirise.com"] {
+  .engine, [class*="engine"], a[href*="mobiri.se"], a[href*="mobirise.com"] {
     display: none !important;
     visibility: hidden !important;
     pointer-events: none !important;
@@ -54,24 +51,24 @@ async function buildSW() {
       content = content.replace(/<\/head>/i, `${styleInject}\n</head>`);
     }
 
-    // 5. Inject Web App Manifest link if missing
-    if (!content.includes('rel="manifest"')) {
+    // 4. Inject Web App Manifest link safely if missing
+    if (!content.includes('rel="manifest"') && !content.includes('href="manifest.json"')) {
       content = content.replace(/<\/head>/i, '  <link rel="manifest" href="manifest.json">\n</head>');
     }
 
-    // 6. Inject Service Worker registration script into ALL HTML pages if missing
+    // 5. Inject Service Worker registration script before </body>
     if (!content.includes('sw-register.js')) {
       content = content.replace(/<\/body>/i, '  <script src="sw-register.js"></script>\n</body>');
     }
 
-    // 7. Inject formatted timestamp for NUL1 & mark span container for NUL2
+    // 6. Replace NUL placeholders
     content = content.replace(/NUL1/g, buildTimeString);
     content = content.replace(/NUL2/g, '<span id="pst-live-clock">Loading PST...</span>');
 
     fs.writeFileSync(file, content, 'utf8');
   });
 
-  // 8. Generate Workbox Service Worker
+  // 7. Generate Workbox Service Worker
   const { count, size } = await workboxBuild.generateSW({
     globDirectory: './',
     globPatterns: [
@@ -129,41 +126,6 @@ async function buildSW() {
   });
 
   console.log(`Generated sw.js: precatching ${count} files (${size} bytes).`);
-
-  // 9. Inject Progress Reporting into sw.js
-  const swPath = './sw.js';
-  if (fs.existsSync(swPath)) {
-    let swCode = fs.readFileSync(swPath, 'utf8');
-    const trackingScript = `
-
-/* --- Progress Reporting Extension --- */
-let totalPrecacheItems = ${count};
-
-self.addEventListener('message', (event) => {
-  if (event.data && event.data.type === 'GET_CACHE_PROGRESS') {
-    broadcastProgress();
-  }
-});
-
-function broadcastProgress() {
-  caches.open(workbox.core.cacheNames.precache).then((cache) => {
-    cache.keys().then((keys) => {
-      self.clients.matchAll().then((clients) => {
-        clients.forEach((client) => {
-          client.postMessage({
-            type: 'CACHE_PROGRESS',
-            current: keys.length,
-            total: totalPrecacheItems
-          });
-        });
-      });
-    });
-  });
-}
-`;
-    fs.writeFileSync(swPath, swCode + trackingScript, 'utf8');
-    console.log('Successfully injected progress tracking listener into sw.js');
-  }
 }
 
 buildSW().catch(console.error);
