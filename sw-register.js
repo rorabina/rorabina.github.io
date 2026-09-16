@@ -145,7 +145,6 @@ function initAndroidButton() {
 
 // 5. Client-side Live PST Clock Ticker (Asia/Manila)
 function startLivePstClock() {
-  // Clean up any lingering Mobirise branding
   document.querySelectorAll('a[href*="mobirise.com"], a[href*="mobiri.se"]').forEach(el => el.remove());
 
   function updatePstClocks() {
