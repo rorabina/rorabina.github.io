@@ -2,7 +2,7 @@ const workboxBuild = require('workbox-build');
 const fs = require('fs');
 
 async function buildSW() {
-  console.log('Automated Build Pipeline: Injecting scripts, mobile desktop layout & cleaning output...');
+  console.log('Automated Build Pipeline: Injecting mobile layout optimizations & cleaning Mobirise output...');
   
   const htmlFiles = fs.readdirSync('./').filter(file => file.endsWith('.html'));
 
@@ -17,11 +17,12 @@ async function buildSW() {
   htmlFiles.forEach(file => {
     let content = fs.readFileSync(file, 'utf8');
 
-    // 1. Force Desktop Viewport Scale for Mobile Devices
+    // 1. Restore Standard Mobile Viewport (Proper 1:1 scale for smooth responsiveness)
+    const standardViewport = '<meta name="viewport" content="width=device-width, initial-scale=1, minimum-scale=1">';
     if (content.includes('<meta name="viewport"')) {
-      content = content.replace(/<meta name="viewport"[^>]*>/i, '<meta name="viewport" content="width=1200, initial-scale=0.35, maximum-scale=3.0, user-scalable=yes">');
+      content = content.replace(/<meta name="viewport"[^>]*>/i, standardViewport);
     } else {
-      content = content.replace(/<\/head>/i, '  <meta name="viewport" content="width=1200, initial-scale=0.35, maximum-scale=3.0, user-scalable=yes">\n</head>');
+      content = content.replace(/<\/head>/i, `  ${standardViewport}\n</head>`);
     }
 
     // 2. Remove Mobirise backlinks AND parent elements
@@ -29,7 +30,7 @@ async function buildSW() {
     content = content.replace(/<a[^>]*href="https?:\/\/(www\.)?(mobirise\.com|mobiri\.se)[^"]*"[^>]*>[\s\S]*?<\/a>/gi, '');
     content = content.replace(/<section[^>]*class="[^"]*engine[^"]*"[^>]*>[\s\S]*?<\/section>/gi, '');
 
-    // 3. Inject CSS Fail-Safe + Desktop Navbar Force Overrides
+    // 3. Inject Mobile Responsive Layout & Fluid Typography Rules
     if (!content.includes('/* Mobirise Fail-Safe */')) {
       const styleInject = `
 <style id="mobirise-cleaner">
@@ -47,36 +48,32 @@ async function buildSW() {
     overflow: hidden !important;
   }
 
-  /* Force Full Desktop Header & Disable Hamburger Menu on Mobile */
-  .navbar-toggler {
-    display: none !important;
-  }
-  .navbar-collapse {
-    display: flex !important;
-    flex-basis: auto !important;
-    visibility: visible !important;
-    opacity: 1 !important;
-  }
-  .navbar-nav {
-    flex-direction: row !important;
-  }
-  .navbar-nav .nav-item {
-    margin-left: 1rem !important;
-    margin-right: 1rem !important;
-  }
-
-  /* Text & Heading Proportional Scaling */
-  body {
-    font-size: 18px !important;
-  }
-  h1, .display-1 {
-    font-size: 2.8rem !important;
-  }
-  h2, .display-2 {
-    font-size: 2.2rem !important;
-  }
-  p, span, a {
-    line-height: 1.5 !important;
+  /* Optimized Mobile Typography (Proportional & Readable) */
+  @media (max-width: 767px) {
+    h1, .display-1 {
+      font-size: clamp(2rem, 6vw, 2.75rem) !important;
+      line-height: 1.2 !important;
+    }
+    h2, .display-2 {
+      font-size: clamp(1.6rem, 5vw, 2.2rem) !important;
+      line-height: 1.3 !important;
+    }
+    h3, .display-5 {
+      font-size: clamp(1.3rem, 4vw, 1.75rem) !important;
+    }
+    p, span, li, div {
+      font-size: clamp(1.05rem, 3.5vw, 1.2rem) !important;
+      line-height: 1.6 !important;
+    }
+    .btn {
+      font-size: 1.05rem !important;
+      padding: 10px 20px !important;
+    }
+    /* Section padding normalization to prevent excessive vertical gaps on small displays */
+    section {
+      padding-top: 2rem !important;
+      padding-bottom: 2rem !important;
+    }
   }
 </style>
 `;
