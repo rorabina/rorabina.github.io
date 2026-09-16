@@ -1,71 +1,75 @@
-// Preserve & Restore Last Visited Page in PWA Standalone Mode
+// 1. Dynamic Status Bar Top Color Synchronization
+function syncDynamicThemeColor() {
+  function applyHeaderColor() {
+    const navbar = document.querySelector('.navbar, nav, header');
+    let targetColor = '#ffffff';
+
+    if (navbar) {
+      const computedBg = window.getComputedStyle(navbar).backgroundColor;
+      if (computedBg && computedBg !== 'rgba(0, 0, 0, 0)' && computedBg !== 'transparent') {
+        targetColor = computedBg;
+      }
+    }
+
+    let metaTheme = document.querySelector('meta[name="theme-color"]');
+    if (!metaTheme) {
+      metaTheme = document.createElement('meta');
+      metaTheme.name = 'theme-color';
+      document.head.appendChild(metaTheme);
+    }
+    metaTheme.setAttribute('content', targetColor);
+  }
+
+  applyHeaderColor();
+  window.addEventListener('scroll', applyHeaderColor, { passive: true });
+}
+
+// 2. Preserve & Restore Active Page State in Standalone PWA Mode
 (function managePwaState() {
   const isStandalone = window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone;
   if (!isStandalone) return;
 
-  function isIndexPage(path) {
-    return path === '/' || path === '' || path.endsWith('/index.html') || path.endsWith('index.html');
+  function getNormalizedPath(path) {
+    if (!path) return '';
+    return path.split('?')[0].split('#')[0];
   }
 
-  function saveCurrentPage() {
-    const currentPath = window.location.pathname;
-    if (isIndexPage(currentPath)) {
-      // Clear saved page if user explicitly navigated to index
-      localStorage.removeItem('pwa_last_page');
-    } else if (currentPath) {
-      localStorage.setItem('pwa_last_page', currentPath);
+  function isIndexRoute(path) {
+    const clean = getNormalizedPath(path);
+    return clean === '/' || clean === '' || clean.endsWith('/index.html') || clean.endsWith('index.html');
+  }
+
+  const currentPath = getNormalizedPath(window.location.pathname);
+  const activeSessionPath = sessionStorage.getItem('pwa_active_session_page');
+
+  // Track user explicit navigation via links/clicks
+  document.addEventListener('click', (e) => {
+    const link = e.target.closest('a');
+    if (link && link.href) {
+      const targetUrl = new URL(link.href, window.location.href);
+      if (targetUrl.origin === window.location.origin) {
+        const targetPath = getNormalizedPath(targetUrl.pathname);
+        if (isIndexRoute(targetPath)) {
+          sessionStorage.removeItem('pwa_active_session_page');
+        } else {
+          sessionStorage.setItem('pwa_active_session_page', targetPath);
+        }
+      }
     }
+  }, true);
+
+  // Auto-restore page state if app is resumed from recent apps background
+  if (isIndexRoute(currentPath) && activeSessionPath && !isIndexRoute(activeSessionPath) && activeSessionPath !== currentPath) {
+    window.location.replace(activeSessionPath);
+  } else if (!isIndexRoute(currentPath)) {
+    sessionStorage.setItem('pwa_active_session_page', currentPath);
   }
-
-  function restoreLastPage() {
-    const currentPath = window.location.pathname;
-    const lastPath = localStorage.getItem('pwa_last_page');
-
-    // Only restore last visited page if one is saved in storage
-    if (isIndexPage(currentPath) && lastPath && !isIndexPage(lastPath)) {
-      window.location.replace(lastPath);
-    }
-  }
-
-  // Clear memory when clicking Home links or Logo
-  function attachHomeLinkListeners() {
-    const homeLinks = document.querySelectorAll('a[href="/"], a[href$="index.html"], .navbar-brand, a.nav-link[href*="index"]');
-    homeLinks.forEach(link => {
-      link.addEventListener('click', () => {
-        localStorage.removeItem('pwa_last_page');
-      });
-    });
-  }
-
-  // 1. Immediately evaluate current route
-  saveCurrentPage();
-
-  // 2. Restore last visited page on initial load if present
-  restoreLastPage();
-
-  // 3. Attach listeners to Home buttons
-  if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', attachHomeLinkListeners);
-  } else {
-    attachHomeLinkListeners();
-  }
-
-  // 4. Handle Android background-to-foreground resume events
-  document.addEventListener('visibilitychange', () => {
-    if (document.visibilityState === 'visible') {
-      restoreLastPage();
-    } else {
-      saveCurrentPage();
-    }
-  });
-
-  window.addEventListener('pageshow', restoreLastPage);
 })();
 
-// Service Worker Registration, Cache Progress, Timestamps, and Scoped Android PWA Trigger
+// 3. Service Worker Registration, Cache Progress, Timestamps, and Scoped Android PWA Trigger
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', () => {
-    // 1. Floating Cache Progress Bar UI
+    // Floating Cache Progress Bar UI
     const barContainer = document.createElement('div');
     barContainer.id = 'pwa-cache-status';
     barContainer.innerHTML = `
@@ -121,13 +125,13 @@ if ('serviceWorker' in navigator) {
       document.body.appendChild(barContainer);
     }
 
-    // 2. Register Service Worker
+    // Register Service Worker
     navigator.serviceWorker.register('/sw.js').then(reg => {
       console.log('SW Registered:', reg.scope);
       reg.update();
     }).catch(err => console.error('SW Registration Failed:', err));
 
-    // 3. Monitor Cache Progress
+    // Monitor Cache Progress
     let checkInterval = setInterval(async () => {
       try {
         const cacheKeys = await caches.keys();
@@ -234,12 +238,15 @@ function startLivePstClock() {
   setInterval(updatePstClocks, 1000);
 }
 
+// Execution triggers
 if (document.readyState === 'loading') {
   document.addEventListener('DOMContentLoaded', () => {
     initAndroidButton();
     startLivePstClock();
+    syncDynamicThemeColor();
   });
 } else {
   initAndroidButton();
   startLivePstClock();
+  syncDynamicThemeColor();
 }
