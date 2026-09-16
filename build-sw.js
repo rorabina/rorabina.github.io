@@ -49,9 +49,9 @@ async function buildSW() {
       content = content.replace(/<\/body>/i, '  <script src="sw-register.js"></script>\n</body>');
     }
 
-    // 5. Text-only replacement for NUL1 and NUL2 (Preserves outer font/bold styling and forces a block line break below labels)
-    content = content.replace(/NUL1/g, `<div class="site-last-updated">${buildTimeString}</div>`);
-    content = content.replace(/NUL2/g, '<div class="pst-live-clock">Loading PST...</div>');
+    // 5. Inline replacement: Replaces NUL1 and NUL2 while preserving parent fonts, colors, and line positions
+    content = content.replace(/NUL1/g, `<span class="site-last-updated" style="font:inherit; color:inherit;">${buildTimeString}</span>`);
+    content = content.replace(/NUL2/g, '<span class="pst-live-clock" style="font:inherit; color:inherit;">Loading PST...</span>');
 
     fs.writeFileSync(file, content, 'utf8');
   });
