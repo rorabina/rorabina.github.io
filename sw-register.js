@@ -57,9 +57,10 @@ if ('serviceWorker' in navigator) {
       document.body.appendChild(barContainer);
     }
 
-    // 2. Service Worker Registration
+    // 2. Service Worker Registration with Immediate Update Check
     navigator.serviceWorker.register('/sw.js').then(reg => {
       console.log('SW Registered:', reg.scope);
+      reg.update(); // Force check for updated SW script
     }).catch(err => console.error('SW Registration Failed:', err));
 
     // 3. Monitor Offline Cache Progress
@@ -143,9 +144,9 @@ function initAndroidButton() {
   }
 }
 
-// 5. Universal Formatted/Bold NUL1 & NUL2 Processor
+// 5. Universal Client-Side Formatted/Bold NUL1 & NUL2 Scanner (Index, Dev, About)
 function processNulPlaceholders() {
-  // Strip dynamic Mobirise promos
+  // Strip dynamic Mobirise backlinks on load
   document.querySelectorAll('a[href*="mobirise.com"], a[href*="mobiri.se"]').forEach(el => el.remove());
 
   const userTimezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
@@ -157,7 +158,7 @@ function processNulPlaceholders() {
   const nul1Regex = /N\s*(?:<[^>]+>\s*)*U\s*(?:<[^>]+>\s*)*L\s*(?:<[^>]+>\s*)*1/gi;
   const nul2Regex = /N\s*(?:<[^>]+>\s*)*U\s*(?:<[^>]+>\s*)*L\s*(?:<[^>]+>\s*)*2/gi;
 
-  // Scan all container elements on index.html, dev.html, about.html, etc.
+  // Scan text containers across all pages
   document.querySelectorAll('p, span, div, h1, h2, h3, h4, h5, h6, li, td').forEach(el => {
     if (el.children.length > 0 && Array.from(el.children).some(child => child.classList.contains('site-last-updated') || child.classList.contains('pst-live-clock'))) {
       return;
