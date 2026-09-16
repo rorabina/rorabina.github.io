@@ -73,7 +73,6 @@ if ('serviceWorker' in navigator) {
           const cachedRequests = await cache.keys();
           const currentCount = cachedRequests.length;
 
-          // Compute progress dynamically against stored items
           const estimatedTotal = Math.max(currentCount, 120);
           let percent = Math.min(Math.round((currentCount / estimatedTotal) * 100), 99);
 
@@ -144,37 +143,44 @@ function initAndroidButton() {
   }
 }
 
-// 5. Dynamic Timestamp Rendering for dev.html
+// 5. Flexible Dynamic Timestamp Handler
 function initTimestamps() {
-  // Convert ISO string from build-sw.js to User's Local Time
-  const updatedEl = document.getElementById('site-last-updated');
-  if (updatedEl) {
-    const rawVal = updatedEl.textContent.trim();
-    if (rawVal.includes('Z') && !isNaN(Date.parse(rawVal))) {
-      const isoDate = new Date(rawVal);
-      updatedEl.textContent = isoDate.toLocaleString(undefined, {
-        dateStyle: 'medium',
-        timeStyle: 'medium'
-      }) + ` (${Intl.DateTimeFormat().resolvedOptions().timeZone})`;
+  // Convert ISO string (NUL1) to User's Local Timezone
+  const allElements = document.querySelectorAll('h1, h2, h3, h4, p, span, div');
+  
+  allElements.forEach(el => {
+    if (el.children.length === 0) {
+      const text = el.textContent.trim();
+      // Match ISO timestamp string injected by build-sw.js
+      if (text.includes('Z') && !isNaN(Date.parse(text)) && text.length > 20) {
+        const isoDate = new Date(text);
+        const userTimezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+        el.textContent = isoDate.toLocaleString(undefined, {
+          dateStyle: 'medium',
+          timeStyle: 'medium'
+        }) + ` (${userTimezone})`;
+      }
     }
-  }
+  });
 
-  // Live Philippine Standard Time (GMT+8) Clock for NUL2
+  // Live Philippine Standard Time (GMT+8) Clock replacing NUL2 with ticking seconds
   function updatePSTClock() {
-    const pstEl = document.getElementById('pst-time');
-    if (pstEl) {
-      const nowPST = new Date().toLocaleString('en-US', {
-        timeZone: 'Asia/Manila',
-        dateStyle: 'medium',
-        timeStyle: 'medium',
-        hour12: true
-      });
-      pstEl.textContent = nowPST + ' PST';
-    }
+    allElements.forEach(el => {
+      if (el.children.length === 0 && (el.textContent.trim() === 'NUL2' || el.classList.contains('pst-live-clock'))) {
+        el.classList.add('pst-live-clock');
+        const nowPST = new Date().toLocaleString('en-US', {
+          timeZone: 'Asia/Manila',
+          dateStyle: 'medium',
+          timeStyle: 'medium',
+          hour12: true
+        });
+        el.textContent = nowPST + ' PST';
+      }
+    });
   }
 
   updatePSTClock();
-  setInterval(updatePSTClock, 1000);
+  setInterval(updatePSTClock, 1000); // Live tick every second
 }
 
 if (document.readyState === 'loading') {
