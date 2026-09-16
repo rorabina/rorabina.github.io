@@ -1,100 +1,78 @@
-// Dynamic Status Bar & Layout Color Match
-(function initDynamicThemeColor() {
-  function updateTheme() {
-    let metaTheme = document.querySelector('meta[name="theme-color"]');
-    if (!metaTheme) {
-      metaTheme = document.createElement('meta');
-      metaTheme.name = 'theme-color';
-      document.head.appendChild(metaTheme);
-    }
-    metaTheme.setAttribute('content', '#ffffff');
-  }
-  updateTheme();
-  document.addEventListener('DOMContentLoaded', updateTheme);
-})();
-
-// Bulletproof PWA Page State Preservation
+// Preserve & Restore Active Page State in Standalone / Fullscreen PWA Mode
 (function managePwaState() {
-  const isStandalone = window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone;
+  const isStandalone = window.matchMedia('(display-mode: standalone)').matches || 
+                       window.matchMedia('(display-mode: fullscreen)').matches || 
+                       window.navigator.standalone;
   if (!isStandalone) return;
 
-  function cleanPath(path) {
-    if (!path) return '';
-    return path.split('?')[0].split('#')[0];
+  function getCurrentFilename() {
+    const path = window.location.pathname;
+    const page = path.substring(path.lastIndexOf('/') + 1).split('?')[0].split('#')[0];
+    return page === '' ? 'index.html' : page;
   }
 
-  function isIndexRoute(path) {
-    const route = cleanPath(path);
-    return route === '/' || route === '' || route.endsWith('/index.html') || route.endsWith('index.html');
+  function isIndex(page) {
+    return page === 'index.html' || page === '' || page === '/';
   }
 
-  function saveRoute(path) {
-    const target = cleanPath(path);
-    if (isIndexRoute(target)) {
-      localStorage.removeItem('pwa_saved_route');
-    } else {
-      localStorage.setItem('pwa_saved_route', target);
+  function saveCurrentRoute() {
+    const page = getCurrentFilename();
+    if (!isIndex(page)) {
+      localStorage.setItem('pwa_active_route', page);
     }
   }
 
   function restoreRoute() {
-    const current = cleanPath(window.location.pathname);
-    const saved = localStorage.getItem('pwa_saved_route');
+    const current = getCurrentFilename();
+    const saved = localStorage.getItem('pwa_active_route');
 
-    // Only redirect to saved subpage if user currently landed on the index page
-    if (isIndexRoute(current) && saved && !isIndexRoute(saved) && current !== saved) {
+    // Only redirect if currently on index page and a valid subpage is saved
+    if (isIndex(current) && saved && !isIndex(saved) && current !== saved) {
       window.location.replace(saved);
     }
   }
 
-  // Event Capture Listener: Intercepts all click events on logo/home links regardless of Mobirise DOM rebuilds
-  document.addEventListener('click', (event) => {
-    const anchor = event.target.closest('a');
+  // Intercept navigation clicks globally
+  document.addEventListener('click', (e) => {
+    const anchor = e.target.closest('a');
     if (anchor && anchor.href) {
       try {
-        const targetUrl = new URL(anchor.href, window.location.href);
-        if (targetUrl.origin === window.location.origin) {
-          saveRoute(targetUrl.pathname);
+        const url = new URL(anchor.href, window.location.href);
+        if (url.origin === window.location.origin) {
+          const targetPage = url.pathname.substring(url.pathname.lastIndexOf('/') + 1);
+          if (isIndex(targetPage)) {
+            localStorage.removeItem('pwa_active_route');
+          } else {
+            localStorage.setItem('pwa_active_route', targetPage);
+          }
         }
-      } catch (e) {
-        // Fallback for relative paths
-        saveRoute(anchor.getAttribute('href'));
+      } catch (err) {
+        console.error('PWA Navigation capture error:', err);
       }
     }
   }, true);
 
-  // Initial Route Check & Restoration
-  const initialPath = cleanPath(window.location.pathname);
-  if (!isIndexRoute(initialPath)) {
-    saveRoute(initialPath);
+  // Execute initial check
+  if (!isIndex(getCurrentFilename())) {
+    saveCurrentRoute();
   } else {
     restoreRoute();
   }
 
-  // Handle Resume Events (Android Task Switcher)
+  // Handle app foreground resume
   document.addEventListener('visibilitychange', () => {
     if (document.visibilityState === 'visible') {
       restoreRoute();
     } else {
-      const activePath = cleanPath(window.location.pathname);
-      if (!isIndexRoute(activePath)) {
-        saveRoute(activePath);
-      }
-    }
-  });
-
-  window.addEventListener('pageshow', () => {
-    const activePath = cleanPath(window.location.pathname);
-    if (isIndexRoute(activePath)) {
-      restoreRoute();
+      saveCurrentRoute();
     }
   });
 })();
 
-// Service Worker Registration & Cache Monitoring
+// Service Worker Registration, Cache Progress, Timestamps, and Scoped Android PWA Trigger
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', () => {
-    // Cache UI Bar
+    // Floating Cache Progress Bar UI
     const barContainer = document.createElement('div');
     barContainer.id = 'pwa-cache-status';
     barContainer.innerHTML = `
@@ -156,7 +134,7 @@ if ('serviceWorker' in navigator) {
       reg.update();
     }).catch(err => console.error('SW Registration Failed:', err));
 
-    // Progress Checker
+    // Monitor Cache Progress
     let checkInterval = setInterval(async () => {
       try {
         const cacheKeys = await caches.keys();
@@ -206,7 +184,7 @@ if ('serviceWorker' in navigator) {
   });
 }
 
-// Scoped Android Install Button
+// Scoped Android Install Button Handling for app.html
 let deferredPrompt;
 window.addEventListener('beforeinstallprompt', (e) => {
   e.preventDefault();
@@ -236,7 +214,7 @@ function initAndroidButton() {
   }
 }
 
-// PST Clock & Mobirise Backlink Cleaner
+// Client-side Live PST Clock Ticker & Container Space Cleaner
 function startLivePstClock() {
   document.querySelectorAll('a[href*="mobirise.com"], a[href*="mobiri.se"]').forEach(el => {
     const parent = el.parentElement;
