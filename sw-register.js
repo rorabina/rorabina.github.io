@@ -1,7 +1,7 @@
 // Service Worker Registration, Cache Progress, Timestamps, and Scoped Android PWA Trigger
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', () => {
-    // 1. Inject Floating Progress Bar UI
+    // 1. Floating Cache Progress Bar UI
     const barContainer = document.createElement('div');
     barContainer.id = 'pwa-cache-status';
     barContainer.innerHTML = `
@@ -57,12 +57,12 @@ if ('serviceWorker' in navigator) {
       document.body.appendChild(barContainer);
     }
 
-    // 2. Register Service Worker
+    // 2. Service Worker Registration
     navigator.serviceWorker.register('/sw.js').then(reg => {
       console.log('SW Registered:', reg.scope);
     }).catch(err => console.error('SW Registration Failed:', err));
 
-    // 3. Monitor Dynamic Cache Storage Progress
+    // 3. Monitor Offline Cache Progress
     let checkInterval = setInterval(async () => {
       try {
         const cacheKeys = await caches.keys();
@@ -143,18 +143,19 @@ function initAndroidButton() {
   }
 }
 
-// 5. Dynamic Timestamps & Client-Side Mobirise Cleaner
+// 5. Dynamic Timestamps, PST Clock & Mobirise Footer Cleaner
 function initTimestampsAndFixes() {
-  // Clean lingering Mobirise promos dynamically
-  document.querySelectorAll('a[href*="mobirise.com"], a[href*="mobiri.se"]').forEach(el => el.remove());
+  // Strip any dynamic Mobirise promo tags on render
+  document.querySelectorAll('a[href*="mobirise.com"], a[href*="mobiri.se"], .cid-mobirise, section[class*="engine"]').forEach(el => el.remove());
 
-  // ISO regex formatting for site last updated
+  // ISO regex pattern matching raw timestamps
   const isoRegex = /\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z/;
   const userTimezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
 
   document.querySelectorAll('*').forEach(el => {
     if (el.children.length === 0) {
-      const match = el.textContent.match(isoRegex);
+      const text = el.textContent;
+      const match = text.match(isoRegex);
       if (match) {
         const rawIso = match[0];
         const isoDate = new Date(rawIso);
@@ -163,12 +164,12 @@ function initTimestampsAndFixes() {
           timeStyle: 'medium'
         }) + ` (${userTimezone})`;
 
-        el.textContent = el.textContent.replace(rawIso, formattedDate);
+        el.textContent = text.replace(rawIso, formattedDate);
       }
     }
   });
 
-  // Ticking PST Clock
+  // Ticking Rabina/Philippine Standard Time Clock with seconds
   function tickPST() {
     const clockEl = document.getElementById('pst-live-clock');
     const nowPST = new Date().toLocaleString('en-US', {
