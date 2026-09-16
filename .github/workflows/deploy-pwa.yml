@@ -26,40 +26,22 @@ jobs:
     steps:
       - name: Checkout Code
         uses: actions/checkout@v4
-        with:
-          token: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Set up Node.js
+      - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '18'
+          node-version: '20'
 
-      - name: Install Dependencies & Run SW Builder
-        run: |
-          npm init -y
-          npm install workbox-build
-          node build-sw.js
+      - name: Install Workbox Build
+        run: npm install workbox-build
 
-      - name: Fix Asset Paths
-        run: |
-          sed -i 's/href="\/assets\//href="assets\//g; s/src="\/assets\//src="assets\//g' *.html
+      - name: Run PWA & HTML Build Script
+        run: node build-sw.js
 
-      - name: Commit Cleaned HTML and SW Back to Main Branch
-        run: |
-          git config --global user.name "github-actions[bot]"
-          git config --global user.email "github-actions[bot]@users.noreply.github.com"
-          git add *.html sw.js manifest.json
-          git status
-          git diff-index --quiet HEAD || git commit -m "Auto-clean Mobirise footer, inject manifest & update sw.js [skip ci]"
-          git push origin main
-
-      - name: Setup Pages
-        uses: actions/configure-pages@v5
-
-      - name: Upload Pages Artifact
+      - name: Upload GitHub Pages Artifact
         uses: actions/upload-pages-artifact@v3
         with:
-          path: '.'
+          path: './'
 
       - name: Deploy to GitHub Pages
         id: deployment
