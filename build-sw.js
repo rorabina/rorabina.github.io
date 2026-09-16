@@ -5,7 +5,7 @@ async function buildSW() {
   console.log('Cleaning HTML files, injecting manifest, adding sw-register, and building SW...');
   const htmlFiles = fs.readdirSync('./').filter(file => file.endsWith('.html'));
 
-  // Pre-format build timestamp for NUL1
+  // Pre-format human-readable build timestamp
   const now = new Date();
   const buildTimeString = now.toLocaleString('en-US', {
     dateStyle: 'medium',
@@ -16,11 +16,11 @@ async function buildSW() {
   htmlFiles.forEach(file => {
     let content = fs.readFileSync(file, 'utf8');
 
-    // 1. Strip Mobirise backlinks and engine badges cleanly
+    // 1. Remove Mobirise backlinks and engine badges without corrupting layout structure
     content = content.replace(/<a[^>]*href="https?:\/\/(www\.)?(mobirise\.com|mobiri\.se)[^"]*"[^>]*>[\s\S]*?<\/a>/gi, '');
     content = content.replace(/<section[^>]*class="[^"]*engine[^"]*"[^>]*>[\s\S]*?<\/section>/gi, '');
 
-    // 2. Fix Capgo CapacitorUpdater CDN import if present
+    // 2. Fix broken Capgo CapacitorUpdater CDN import if present
     content = content.replace(
       /<script[^>]*type="module"[^>]*>[\s\S]*?import\s*\{\s*CapacitorUpdater\s*\}\s*from\s*['"]https:\/\/cdn\.jsdelivr\.net\/npm\/@capgo\/capacitor-updater[^'"]*['"];?[\s\S]*?<\/script>/gi,
       `<script>
@@ -33,7 +33,7 @@ async function buildSW() {
 </script>`
     );
 
-    // 3. Inject CSS Fail-Safe to hide lingering Mobirise branding/footers
+    // 3. Inject CSS Fail-Safe to hide any lingering promo elements
     if (!content.includes('/* Mobirise Fail-Safe */')) {
       const styleInject = `
 <style id="mobirise-cleaner">
@@ -61,7 +61,7 @@ async function buildSW() {
       content = content.replace(/<\/body>/i, '  <script src="sw-register.js"></script>\n</body>');
     }
 
-    // 6. Replace NUL placeholders (converts NUL1 to build time, NUL2 to live clock target)
+    // 6. Targeted replacement for NUL1 and NUL2 placeholders
     content = content.replace(/NUL1/g, `<span id="site-last-updated">${buildTimeString}</span>`);
     content = content.replace(/NUL2/g, '<span id="pst-live-clock">Loading PST...</span>');
 
