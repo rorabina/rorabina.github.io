@@ -1,72 +1,100 @@
-// Preserve & Restore Active Page State in Standalone PWA Mode
+// Dynamic Status Bar & Layout Color Match
+(function initDynamicThemeColor() {
+  function updateTheme() {
+    let metaTheme = document.querySelector('meta[name="theme-color"]');
+    if (!metaTheme) {
+      metaTheme = document.createElement('meta');
+      metaTheme.name = 'theme-color';
+      document.head.appendChild(metaTheme);
+    }
+    metaTheme.setAttribute('content', '#ffffff');
+  }
+  updateTheme();
+  document.addEventListener('DOMContentLoaded', updateTheme);
+})();
+
+// Bulletproof PWA Page State Preservation
 (function managePwaState() {
   const isStandalone = window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone;
   if (!isStandalone) return;
 
-  function getNormalizedPath(path) {
+  function cleanPath(path) {
     if (!path) return '';
     return path.split('?')[0].split('#')[0];
   }
 
   function isIndexRoute(path) {
-    const clean = getNormalizedPath(path);
-    return clean === '/' || clean === '' || clean.endsWith('/index.html') || clean.endsWith('index.html');
+    const route = cleanPath(path);
+    return route === '/' || route === '' || route.endsWith('/index.html') || route.endsWith('index.html');
   }
 
-  function saveCurrentPage() {
-    const currentPath = getNormalizedPath(window.location.pathname);
-    if (!isIndexRoute(currentPath)) {
-      localStorage.setItem('pwa_active_page', currentPath);
+  function saveRoute(path) {
+    const target = cleanPath(path);
+    if (isIndexRoute(target)) {
+      localStorage.removeItem('pwa_saved_route');
+    } else {
+      localStorage.setItem('pwa_saved_route', target);
     }
   }
 
-  function restoreLastPage() {
-    const currentPath = getNormalizedPath(window.location.pathname);
-    const savedPath = localStorage.getItem('pwa_active_page');
+  function restoreRoute() {
+    const current = cleanPath(window.location.pathname);
+    const saved = localStorage.getItem('pwa_saved_route');
 
-    if (isIndexRoute(currentPath) && savedPath && !isIndexRoute(savedPath)) {
-      window.location.replace(savedPath);
+    // Only redirect to saved subpage if user currently landed on the index page
+    if (isIndexRoute(current) && saved && !isIndexRoute(saved) && current !== saved) {
+      window.location.replace(saved);
     }
   }
 
-  // Clear saved page state on explicit home / logo clicks
-  document.addEventListener('click', (e) => {
-    const link = e.target.closest('a');
-    if (link && link.href) {
-      const targetUrl = new URL(link.href, window.location.href);
-      if (targetUrl.origin === window.location.origin) {
-        const targetPath = getNormalizedPath(targetUrl.pathname);
-        if (isIndexRoute(targetPath)) {
-          localStorage.removeItem('pwa_active_page');
-        } else {
-          localStorage.setItem('pwa_active_page', targetPath);
+  // Event Capture Listener: Intercepts all click events on logo/home links regardless of Mobirise DOM rebuilds
+  document.addEventListener('click', (event) => {
+    const anchor = event.target.closest('a');
+    if (anchor && anchor.href) {
+      try {
+        const targetUrl = new URL(anchor.href, window.location.href);
+        if (targetUrl.origin === window.location.origin) {
+          saveRoute(targetUrl.pathname);
         }
+      } catch (e) {
+        // Fallback for relative paths
+        saveRoute(anchor.getAttribute('href'));
       }
     }
   }, true);
 
-  // Save current route upon loading non-index pages
-  saveCurrentPage();
+  // Initial Route Check & Restoration
+  const initialPath = cleanPath(window.location.pathname);
+  if (!isIndexRoute(initialPath)) {
+    saveRoute(initialPath);
+  } else {
+    restoreRoute();
+  }
 
-  // Restore saved route if app is cold-started or resumed onto the root index
-  restoreLastPage();
-
-  // Restore when app is brought back to the foreground from background memory
+  // Handle Resume Events (Android Task Switcher)
   document.addEventListener('visibilitychange', () => {
     if (document.visibilityState === 'visible') {
-      restoreLastPage();
+      restoreRoute();
     } else {
-      saveCurrentPage();
+      const activePath = cleanPath(window.location.pathname);
+      if (!isIndexRoute(activePath)) {
+        saveRoute(activePath);
+      }
     }
   });
 
-  window.addEventListener('pageshow', restoreLastPage);
+  window.addEventListener('pageshow', () => {
+    const activePath = cleanPath(window.location.pathname);
+    if (isIndexRoute(activePath)) {
+      restoreRoute();
+    }
+  });
 })();
 
-// Service Worker Registration, Cache Progress, Timestamps, and Scoped Android PWA Trigger
+// Service Worker Registration & Cache Monitoring
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', () => {
-    // Floating Cache Progress Bar UI
+    // Cache UI Bar
     const barContainer = document.createElement('div');
     barContainer.id = 'pwa-cache-status';
     barContainer.innerHTML = `
@@ -128,7 +156,7 @@ if ('serviceWorker' in navigator) {
       reg.update();
     }).catch(err => console.error('SW Registration Failed:', err));
 
-    // Monitor Cache Progress
+    // Progress Checker
     let checkInterval = setInterval(async () => {
       try {
         const cacheKeys = await caches.keys();
@@ -178,7 +206,7 @@ if ('serviceWorker' in navigator) {
   });
 }
 
-// Scoped Android Install Button Handling for app.html
+// Scoped Android Install Button
 let deferredPrompt;
 window.addEventListener('beforeinstallprompt', (e) => {
   e.preventDefault();
@@ -208,7 +236,7 @@ function initAndroidButton() {
   }
 }
 
-// Client-side Live PST Clock Ticker & Container Space Cleaner
+// PST Clock & Mobirise Backlink Cleaner
 function startLivePstClock() {
   document.querySelectorAll('a[href*="mobirise.com"], a[href*="mobiri.se"]').forEach(el => {
     const parent = el.parentElement;
