@@ -5,7 +5,7 @@ async function buildSW() {
   console.log('Cleaning HTML files, injecting manifest, adding sw-register, and building SW...');
   const htmlFiles = fs.readdirSync('./').filter(file => file.endsWith('.html'));
 
-  // Pre-format human-readable build timestamp
+  // Pre-format UTC/PST Build Time for Site Last Updated
   const now = new Date();
   const buildTimeString = now.toLocaleString('en-US', {
     dateStyle: 'medium',
@@ -16,7 +16,7 @@ async function buildSW() {
   htmlFiles.forEach(file => {
     let content = fs.readFileSync(file, 'utf8');
 
-    // 1. Remove Mobirise backlinks and engine badges without corrupting layout structure
+    // 1. Strip Mobirise backlinks and engine badges cleanly
     content = content.replace(/<a[^>]*href="https?:\/\/(www\.)?(mobirise\.com|mobiri\.se)[^"]*"[^>]*>[\s\S]*?<\/a>/gi, '');
     content = content.replace(/<section[^>]*class="[^"]*engine[^"]*"[^>]*>[\s\S]*?<\/section>/gi, '');
 
@@ -33,7 +33,7 @@ async function buildSW() {
 </script>`
     );
 
-    // 3. Inject CSS Fail-Safe to hide any lingering promo elements
+    // 3. Inject CSS Fail-Safe to force-hide lingering Mobirise overlays
     if (!content.includes('/* Mobirise Fail-Safe */')) {
       const styleInject = `
 <style id="mobirise-cleaner">
@@ -61,7 +61,7 @@ async function buildSW() {
       content = content.replace(/<\/body>/i, '  <script src="sw-register.js"></script>\n</body>');
     }
 
-    // 6. Targeted replacement for NUL1 and NUL2 placeholders
+    // 6. Direct global replacement for NUL1 and NUL2 placeholders
     content = content.replace(/NUL1/g, `<span id="site-last-updated">${buildTimeString}</span>`);
     content = content.replace(/NUL2/g, '<span id="pst-live-clock">Loading PST...</span>');
 
