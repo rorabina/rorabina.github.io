@@ -143,9 +143,12 @@ function initAndroidButton() {
   }
 }
 
-// 5. Robust Dynamic Timestamps & Live PST Clock
-function initTimestamps() {
-  // Regex pattern matching ISO dates (e.g. 2026-09-16T04:51:57.538Z)
+// 5. Dynamic Timestamps & Client-Side Mobirise Cleaner
+function initTimestampsAndFixes() {
+  // Clean lingering Mobirise promos dynamically
+  document.querySelectorAll('a[href*="mobirise.com"], a[href*="mobiri.se"]').forEach(el => el.remove());
+
+  // ISO regex formatting for site last updated
   const isoRegex = /\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z/;
   const userTimezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
 
@@ -160,13 +163,12 @@ function initTimestamps() {
           timeStyle: 'medium'
         }) + ` (${userTimezone})`;
 
-        // Replace raw ISO string with formatted client time
         el.textContent = el.textContent.replace(rawIso, formattedDate);
       }
     }
   });
 
-  // Ticking Philippine Standard Time Clock
+  // Ticking PST Clock
   function tickPST() {
     const clockEl = document.getElementById('pst-live-clock');
     const nowPST = new Date().toLocaleString('en-US', {
@@ -195,9 +197,9 @@ function initTimestamps() {
 if (document.readyState === 'loading') {
   document.addEventListener('DOMContentLoaded', () => {
     initAndroidButton();
-    initTimestamps();
+    initTimestampsAndFixes();
   });
 } else {
   initAndroidButton();
-  initTimestamps();
+  initTimestampsAndFixes();
 }
