@@ -2,11 +2,10 @@ const workboxBuild = require('workbox-build');
 const fs = require('fs');
 
 async function buildSW() {
-  console.log('Automated Build Pipeline: Cleaning HTML, injecting tags, and replacing placeholders...');
+  console.log('Automated Build Pipeline: Injecting scripts & cleaning Mobirise output...');
   
   const htmlFiles = fs.readdirSync('./').filter(file => file.endsWith('.html'));
 
-  // Formatted GitHub build timestamp (Asia/Manila time)
   const now = new Date();
   const buildTimeString = now.toLocaleString('en-US', {
     timeZone: 'Asia/Manila',
@@ -22,7 +21,7 @@ async function buildSW() {
     content = content.replace(/<a[^>]*href="https?:\/\/(www\.)?(mobirise\.com|mobiri\.se)[^"]*"[^>]*>[\s\S]*?<\/a>/gi, '');
     content = content.replace(/<section[^>]*class="[^"]*engine[^"]*"[^>]*>[\s\S]*?<\/section>/gi, '');
 
-    // 2. Inject CSS Fail-Safe to hide any remaining Mobirise promo tags
+    // 2. CSS Fail-Safe to hide any remaining Mobirise promo tags
     if (!content.includes('/* Mobirise Fail-Safe */')) {
       const styleInject = `
 <style id="mobirise-cleaner">
@@ -50,9 +49,9 @@ async function buildSW() {
       content = content.replace(/<\/body>/i, '  <script src="sw-register.js"></script>\n</body>');
     }
 
-    // 5. Replace NUL1 with build timestamp and NUL2 with PST clock placeholder (handles normal & bold)
-    content = content.replace(/(?:<b[^>]*>|<strong[^>]*>|<span[^>]*>)*\s*NUL1\s*(?:<\/b>|<\/strong>|<\/span>)*/gi, `<span class="site-last-updated">${buildTimeString}</span>`);
-    content = content.replace(/(?:<b[^>]*>|<strong[^>]*>|<span[^>]*>)*\s*NUL2\s*(?:<\/b>|<\/strong>|<\/span>)*/gi, '<span class="pst-live-clock">Loading PST...</span>');
+    // 5. Text-only replacement for NUL1 and NUL2 (Preserves outer font/bold styling and forces a block line break below labels)
+    content = content.replace(/NUL1/g, `<div class="site-last-updated">${buildTimeString}</div>`);
+    content = content.replace(/NUL2/g, '<div class="pst-live-clock">Loading PST...</div>');
 
     fs.writeFileSync(file, content, 'utf8');
   });
