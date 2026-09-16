@@ -17,11 +17,12 @@ async function buildSW() {
   htmlFiles.forEach(file => {
     let content = fs.readFileSync(file, 'utf8');
 
-    // 1. Remove Mobirise backlinks and engine branding
+    // 1. Fully remove Mobirise backlinks AND their parent wrapping elements (p, div, section, container)
+    content = content.replace(/<(p|div|section|span)[^>]*>\s*<a[^>]*href="https?:\/\/(www\.)?(mobirise\.com|mobiri\.se)[^"]*"[^>]*>[\s\S]*?<\/a>\s*<\/\1>/gi, '');
     content = content.replace(/<a[^>]*href="https?:\/\/(www\.)?(mobirise\.com|mobiri\.se)[^"]*"[^>]*>[\s\S]*?<\/a>/gi, '');
     content = content.replace(/<section[^>]*class="[^"]*engine[^"]*"[^>]*>[\s\S]*?<\/section>/gi, '');
 
-    // 2. CSS Fail-Safe to hide any remaining Mobirise promo tags
+    // 2. CSS Fail-Safe to completely collapse and remove layout space of residual Mobirise promo tags
     if (!content.includes('/* Mobirise Fail-Safe */')) {
       const styleInject = `
 <style id="mobirise-cleaner">
@@ -31,8 +32,12 @@ async function buildSW() {
     visibility: hidden !important;
     pointer-events: none !important;
     height: 0 !important;
+    max-height: 0 !important;
+    margin: 0 !important;
+    padding: 0 !important;
     width: 0 !important;
     opacity: 0 !important;
+    overflow: hidden !important;
   }
 </style>
 `;
