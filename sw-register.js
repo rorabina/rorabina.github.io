@@ -1,4 +1,4 @@
-// Register Service Worker, Real-Time Cache Storage Progress, and Scoped Android PWA Trigger
+// Service Worker Registration, Cache Progress, Timestamps, and Scoped Android PWA Trigger
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', () => {
     // 1. Inject Floating Progress Bar UI
@@ -62,7 +62,7 @@ if ('serviceWorker' in navigator) {
       console.log('SW Registered:', reg.scope);
     }).catch(err => console.error('SW Registration Failed:', err));
 
-    // 3. Monitor Precise Cache Storage Entries (Polled against live CacheStorage)
+    // 3. Monitor Dynamic Cache Storage Progress
     let checkInterval = setInterval(async () => {
       try {
         const cacheKeys = await caches.keys();
@@ -73,15 +73,13 @@ if ('serviceWorker' in navigator) {
           const cachedRequests = await cache.keys();
           const currentCount = cachedRequests.length;
 
-          // Detect active SW registration
-          const reg = await navigator.serviceWorker.getRegistration();
-          const isInstalling = reg && (reg.installing || reg.waiting);
-
-          // Get dynamically stored count from Workbox manifest or fallback to stored items
+          // Compute progress dynamically against stored items
           const estimatedTotal = Math.max(currentCount, 120);
           let percent = Math.min(Math.round((currentCount / estimatedTotal) * 100), 99);
 
-          // Only allow reaching 100% when installation state completes AND cache is populated
+          const reg = await navigator.serviceWorker.getRegistration();
+          const isInstalling = reg && (reg.installing || reg.waiting);
+
           if (!isInstalling && currentCount > 100) {
             percent = 100;
           }
@@ -111,7 +109,7 @@ if ('serviceWorker' in navigator) {
       } catch (err) {
         console.error('Cache progress error:', err);
       }
-    }, 500);
+    }, 400);
   });
 }
 
@@ -146,8 +144,45 @@ function initAndroidButton() {
   }
 }
 
+// 5. Dynamic Timestamp Rendering for dev.html
+function initTimestamps() {
+  // Convert ISO string from build-sw.js to User's Local Time
+  const updatedEl = document.getElementById('site-last-updated');
+  if (updatedEl) {
+    const rawVal = updatedEl.textContent.trim();
+    if (rawVal.includes('Z') && !isNaN(Date.parse(rawVal))) {
+      const isoDate = new Date(rawVal);
+      updatedEl.textContent = isoDate.toLocaleString(undefined, {
+        dateStyle: 'medium',
+        timeStyle: 'medium'
+      }) + ` (${Intl.DateTimeFormat().resolvedOptions().timeZone})`;
+    }
+  }
+
+  // Live Philippine Standard Time (GMT+8) Clock for NUL2
+  function updatePSTClock() {
+    const pstEl = document.getElementById('pst-time');
+    if (pstEl) {
+      const nowPST = new Date().toLocaleString('en-US', {
+        timeZone: 'Asia/Manila',
+        dateStyle: 'medium',
+        timeStyle: 'medium',
+        hour12: true
+      });
+      pstEl.textContent = nowPST + ' PST';
+    }
+  }
+
+  updatePSTClock();
+  setInterval(updatePSTClock, 1000);
+}
+
 if (document.readyState === 'loading') {
-  document.addEventListener('DOMContentLoaded', initAndroidButton);
+  document.addEventListener('DOMContentLoaded', () => {
+    initAndroidButton();
+    initTimestamps();
+  });
 } else {
   initAndroidButton();
+  initTimestamps();
 }
