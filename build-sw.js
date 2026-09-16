@@ -4,7 +4,6 @@ const fs = require('fs');
 async function buildSW() {
   console.log('Automated Build Pipeline: Injecting scripts & cleaning Mobirise output...');
   
-  // Grab every HTML file exported by Mobirise (index, about, dev, etc.)
   const htmlFiles = fs.readdirSync('./').filter(file => file.endsWith('.html'));
 
   const now = new Date();
@@ -17,11 +16,11 @@ async function buildSW() {
   htmlFiles.forEach(file => {
     let content = fs.readFileSync(file, 'utf8');
 
-    // 1. Remove Mobirise backlinks and promo code
+    // 1. Remove Mobirise backlinks and engine sections
     content = content.replace(/<a[^>]*href="https?:\/\/(www\.)?(mobirise\.com|mobiri\.se)[^"]*"[^>]*>[\s\S]*?<\/a>/gi, '');
     content = content.replace(/<section[^>]*class="[^"]*engine[^"]*"[^>]*>[\s\S]*?<\/section>/gi, '');
 
-    // 2. CSS Fail-Safe to hide any residual Mobirise branding tags
+    // 2. CSS Fail-Safe to hide any remaining Mobirise promo elements
     if (!content.includes('/* Mobirise Fail-Safe */')) {
       const styleInject = `
 <style id="mobirise-cleaner">
@@ -39,28 +38,24 @@ async function buildSW() {
       content = content.replace(/<\/head>/i, `${styleInject}\n</head>`);
     }
 
-    // 3. Force-inject manifest link if missing
+    // 3. Inject Web App Manifest link into <head>
     if (!content.includes('rel="manifest"') && !content.includes('href="manifest.json"')) {
       content = content.replace(/<\/head>/i, '  <link rel="manifest" href="manifest.json">\n</head>');
     }
 
-    // 4. Force-inject sw-register.js script before </body> so Mobirise can't strip it
+    // 4. Inject sw-register.js before </body>
     if (!content.includes('sw-register.js')) {
       content = content.replace(/<\/body>/i, '  <script src="sw-register.js"></script>\n</body>');
     }
 
-    // 5. Build-Time Replace for NUL1 and NUL2 (handles plain, bold <b>NUL1</b>, or inner <span> tags)
-    const nul1Regex = /N\s*(?:<[^>]+>\s*)*U\s*(?:<[^>]+>\s*)*L\s*(?:<[^>]+>\s*)*1/gi;
-    const nul2Regex = /N\s*(?:<[^>]+>\s*)*U\s*(?:<[^>]+>\s*)*L\s*(?:<[^>]+>\s*)*2/gi;
+    // 5. Strict inline replacement for NUL1 and NUL2 (Prevents stripping structural tags)
+    content = content.replace(/(?:<b>|<strong>|<span>)?\s*NUL1\s*(?:<\/b>|<\/strong>|<\/span>)?/gi, `<span class="site-last-updated">${buildTimeString}</span>`);
+    content = content.replace(/(?:<b>|<strong>|<span>)?\s*NUL2\s*(?:<\/b>|<\/strong>|<\/span>)?/gi, '<span class="pst-live-clock">Loading PST...</span>');
 
-    content = content.replace(nul1Regex, `<span class="site-last-updated">${buildTimeString}</span>`);
-    content = content.replace(nul2Regex, '<span class="pst-live-clock">Loading PST...</span>');
-
-    // Overwrite the file on disk during build
     fs.writeFileSync(file, content, 'utf8');
   });
 
-  // 6. Generate SW Precache Build
+  // 6. Generate Workbox Service Worker
   const { count, size } = await workboxBuild.generateSW({
     globDirectory: './',
     globPatterns: [
@@ -117,7 +112,7 @@ async function buildSW() {
     ],
   });
 
-  console.log(`Successfully built sw.js: cached ${count} files (${size} bytes).`);
+  console.log(`Successfully built sw.js: precached ${count} files (${size} bytes).`);
 }
 
 buildSW().catch(console.error);
