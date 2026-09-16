@@ -112,63 +112,46 @@ if ('serviceWorker' in navigator) {
   });
 }
 
-// 4. Scoped Android Install Button Handling for app.html
-let deferredPrompt;
-
-window.addEventListener('beforeinstallprompt', (e) => {
-  e.preventDefault();
-  deferredPrompt = e;
-});
-
-function initAndroidButton() {
-  if (window.location.pathname.includes('app.html')) {
-    const androidBtns = document.querySelectorAll('a[href*="android"], .btn-android, #android-install-btn, .btn');
-    androidBtns.forEach(btn => {
-      if (btn.textContent.includes('Android')) {
-        btn.style.cursor = 'pointer';
-        btn.addEventListener('click', async (evt) => {
-          evt.preventDefault();
-          evt.stopPropagation();
-          if (deferredPrompt) {
-            deferredPrompt.prompt();
-            const { outcome } = await deferredPrompt.userChoice;
-            console.log(`PWA Install Choice: ${outcome}`);
-            deferredPrompt = null;
-          } else {
-            alert('PWA install prompt is ready or app is already installed!');
-          }
-        });
-      }
-    });
-  }
-}
-
-// 5. Hero Block Timestamps & Live PST Clock
-function initTimestampsAndFixes() {
-  // Strip any lingering promo links
+// 4. Dynamic Target Resolution for NUL1 & NUL2 inside Hero Block
+function initHeroTimestamps() {
+  // Clean dynamic Mobirise backlinks
   document.querySelectorAll('a[href*="mobirise.com"], a[href*="mobiri.se"]').forEach(el => el.remove());
 
-  // Dynamic fallback for NUL1 (Site Last Updated) on client-side
+  // TreeWalker search for NUL1 and NUL2 text nodes anywhere in the DOM
+  const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT, null, false);
+  let node;
+  const nodesToProcess = [];
+
+  while (node = walker.nextNode()) {
+    if (node.nodeValue.includes('NUL1') || node.nodeValue.includes('NUL2')) {
+      nodesToProcess.push(node);
+    }
+  }
+
   const userTimezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
-  const isoRegex = /\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z/;
+  const formattedBuildDate = new Date().toLocaleString(undefined, {
+    dateStyle: 'medium',
+    timeStyle: 'medium'
+  }) + ` (${userTimezone})`;
 
-  document.querySelectorAll('*').forEach(el => {
-    if (el.children.length === 0) {
-      const match = el.textContent.match(isoRegex);
-      if (match) {
-        const rawIso = match[0];
-        const isoDate = new Date(rawIso);
-        const formattedDate = isoDate.toLocaleString(undefined, {
-          dateStyle: 'medium',
-          timeStyle: 'medium'
-        }) + ` (${userTimezone})`;
+  nodesToProcess.forEach(textNode => {
+    const parent = textNode.parentNode;
+    if (!parent) return;
 
-        el.textContent = el.textContent.replace(rawIso, formattedDate);
-      }
+    if (textNode.nodeValue.includes('NUL1')) {
+      const span = document.createElement('span');
+      span.id = 'site-last-updated';
+      span.textContent = formattedBuildDate;
+      parent.replaceChild(span, textNode);
+    } else if (textNode.nodeValue.includes('NUL2')) {
+      const span = document.createElement('span');
+      span.id = 'pst-live-clock';
+      span.textContent = 'Loading PST...';
+      parent.replaceChild(span, textNode);
     }
   });
 
-  // Ticking Rabina / Philippine Standard Time Clock for NUL2
+  // Ticking Rabina Standard Time Clock for NUL2
   function tickPST() {
     const clockEl = document.getElementById('pst-live-clock');
     const nowPST = new Date().toLocaleString('en-US', {
@@ -180,14 +163,6 @@ function initTimestampsAndFixes() {
 
     if (clockEl) {
       clockEl.textContent = nowPST + ' PST';
-    } else {
-      // Scan fallback for NUL2 placeholder text
-      document.querySelectorAll('*').forEach(el => {
-        if (el.children.length === 0 && (el.textContent.trim() === 'NUL2' || el.textContent.includes('Loading PST...'))) {
-          el.id = 'pst-live-clock';
-          el.textContent = nowPST + ' PST';
-        }
-      });
     }
   }
 
@@ -196,11 +171,7 @@ function initTimestampsAndFixes() {
 }
 
 if (document.readyState === 'loading') {
-  document.addEventListener('DOMContentLoaded', () => {
-    initAndroidButton();
-    initTimestampsAndFixes();
-  });
+  document.addEventListener('DOMContentLoaded', initHeroTimestamps);
 } else {
-  initAndroidButton();
-  initTimestampsAndFixes();
+  initHeroTimestamps();
 }
