@@ -1,30 +1,4 @@
-// 1. Dynamic Status Bar Top Color Synchronization
-function syncDynamicThemeColor() {
-  function applyHeaderColor() {
-    const navbar = document.querySelector('.navbar, nav, header');
-    let targetColor = '#ffffff';
-
-    if (navbar) {
-      const computedBg = window.getComputedStyle(navbar).backgroundColor;
-      if (computedBg && computedBg !== 'rgba(0, 0, 0, 0)' && computedBg !== 'transparent') {
-        targetColor = computedBg;
-      }
-    }
-
-    let metaTheme = document.querySelector('meta[name="theme-color"]');
-    if (!metaTheme) {
-      metaTheme = document.createElement('meta');
-      metaTheme.name = 'theme-color';
-      document.head.appendChild(metaTheme);
-    }
-    metaTheme.setAttribute('content', targetColor);
-  }
-
-  applyHeaderColor();
-  window.addEventListener('scroll', applyHeaderColor, { passive: true });
-}
-
-// 2. Preserve & Restore Active Page State in Standalone PWA Mode
+// Preserve & Restore Active Page State in Standalone PWA Mode
 (function managePwaState() {
   const isStandalone = window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone;
   if (!isStandalone) return;
@@ -39,10 +13,23 @@ function syncDynamicThemeColor() {
     return clean === '/' || clean === '' || clean.endsWith('/index.html') || clean.endsWith('index.html');
   }
 
-  const currentPath = getNormalizedPath(window.location.pathname);
-  const activeSessionPath = sessionStorage.getItem('pwa_active_session_page');
+  function saveCurrentPage() {
+    const currentPath = getNormalizedPath(window.location.pathname);
+    if (!isIndexRoute(currentPath)) {
+      localStorage.setItem('pwa_active_page', currentPath);
+    }
+  }
 
-  // Track user explicit navigation via links/clicks
+  function restoreLastPage() {
+    const currentPath = getNormalizedPath(window.location.pathname);
+    const savedPath = localStorage.getItem('pwa_active_page');
+
+    if (isIndexRoute(currentPath) && savedPath && !isIndexRoute(savedPath)) {
+      window.location.replace(savedPath);
+    }
+  }
+
+  // Clear saved page state on explicit home / logo clicks
   document.addEventListener('click', (e) => {
     const link = e.target.closest('a');
     if (link && link.href) {
@@ -50,23 +37,33 @@ function syncDynamicThemeColor() {
       if (targetUrl.origin === window.location.origin) {
         const targetPath = getNormalizedPath(targetUrl.pathname);
         if (isIndexRoute(targetPath)) {
-          sessionStorage.removeItem('pwa_active_session_page');
+          localStorage.removeItem('pwa_active_page');
         } else {
-          sessionStorage.setItem('pwa_active_session_page', targetPath);
+          localStorage.setItem('pwa_active_page', targetPath);
         }
       }
     }
   }, true);
 
-  // Auto-restore page state if app is resumed from recent apps background
-  if (isIndexRoute(currentPath) && activeSessionPath && !isIndexRoute(activeSessionPath) && activeSessionPath !== currentPath) {
-    window.location.replace(activeSessionPath);
-  } else if (!isIndexRoute(currentPath)) {
-    sessionStorage.setItem('pwa_active_session_page', currentPath);
-  }
+  // Save current route upon loading non-index pages
+  saveCurrentPage();
+
+  // Restore saved route if app is cold-started or resumed onto the root index
+  restoreLastPage();
+
+  // Restore when app is brought back to the foreground from background memory
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'visible') {
+      restoreLastPage();
+    } else {
+      saveCurrentPage();
+    }
+  });
+
+  window.addEventListener('pageshow', restoreLastPage);
 })();
 
-// 3. Service Worker Registration, Cache Progress, Timestamps, and Scoped Android PWA Trigger
+// Service Worker Registration, Cache Progress, Timestamps, and Scoped Android PWA Trigger
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', () => {
     // Floating Cache Progress Bar UI
@@ -181,7 +178,7 @@ if ('serviceWorker' in navigator) {
   });
 }
 
-// 4. Scoped Android Install Button Handling for app.html
+// Scoped Android Install Button Handling for app.html
 let deferredPrompt;
 window.addEventListener('beforeinstallprompt', (e) => {
   e.preventDefault();
@@ -211,7 +208,7 @@ function initAndroidButton() {
   }
 }
 
-// 5. Client-side Live PST Clock Ticker & Container Space Cleaner
+// Client-side Live PST Clock Ticker & Container Space Cleaner
 function startLivePstClock() {
   document.querySelectorAll('a[href*="mobirise.com"], a[href*="mobiri.se"]').forEach(el => {
     const parent = el.parentElement;
@@ -238,15 +235,12 @@ function startLivePstClock() {
   setInterval(updatePstClocks, 1000);
 }
 
-// Execution triggers
 if (document.readyState === 'loading') {
   document.addEventListener('DOMContentLoaded', () => {
     initAndroidButton();
     startLivePstClock();
-    syncDynamicThemeColor();
   });
 } else {
   initAndroidButton();
   startLivePstClock();
-  syncDynamicThemeColor();
 }
