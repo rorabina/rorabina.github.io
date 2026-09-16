@@ -1,3 +1,22 @@
+// Preserve Last Visited Page in PWA Standalone Mode
+(function restorePwaState() {
+  const isStandalone = window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone;
+  if (!isStandalone) return;
+
+  const currentPath = window.location.pathname;
+  const lastPath = localStorage.getItem('pwa_last_page');
+
+  // Track page location when navigating across the PWA
+  if (currentPath && currentPath !== '/' && !currentPath.endsWith('index.html')) {
+    localStorage.setItem('pwa_last_page', currentPath);
+  }
+
+  // Auto-restore last visited page on cold startup
+  if ((currentPath === '/' || currentPath.endsWith('index.html')) && lastPath && lastPath !== currentPath) {
+    window.location.replace(lastPath);
+  }
+})();
+
 // Service Worker Registration, Cache Progress, Timestamps, and Scoped Android PWA Trigger
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', () => {
@@ -145,7 +164,6 @@ function initAndroidButton() {
 
 // 5. Client-side Live PST Clock Ticker & Container Space Cleaner
 function startLivePstClock() {
-  // Removes Mobirise links AND collapses their parent wrapping tags if left empty
   document.querySelectorAll('a[href*="mobirise.com"], a[href*="mobiri.se"]').forEach(el => {
     const parent = el.parentElement;
     el.remove();
