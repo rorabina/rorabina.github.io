@@ -112,66 +112,102 @@ if ('serviceWorker' in navigator) {
   });
 }
 
-// 4. Dynamic Target Resolution for NUL1 & NUL2 inside Hero Block
-function initHeroTimestamps() {
-  // Clean dynamic Mobirise backlinks
+// 4. Scoped Android Install Button Handling for app.html
+let deferredPrompt;
+
+window.addEventListener('beforeinstallprompt', (e) => {
+  e.preventDefault();
+  deferredPrompt = e;
+});
+
+function initAndroidButton() {
+  if (window.location.pathname.includes('app.html')) {
+    const androidBtns = document.querySelectorAll('a[href*="android"], .btn-android, #android-install-btn, .btn');
+    androidBtns.forEach(btn => {
+      if (btn.textContent.includes('Android')) {
+        btn.style.cursor = 'pointer';
+        btn.addEventListener('click', async (evt) => {
+          evt.preventDefault();
+          evt.stopPropagation();
+          if (deferredPrompt) {
+            deferredPrompt.prompt();
+            const { outcome } = await deferredPrompt.userChoice;
+            console.log(`PWA Install Choice: ${outcome}`);
+            deferredPrompt = null;
+          } else {
+            alert('PWA install prompt is ready or app is already installed!');
+          }
+        });
+      }
+    });
+  }
+}
+
+// 5. Global NUL1 & NUL2 Processor (Runs on index.html and dev.html)
+function processNulPlaceholders() {
+  // Clean dynamic Mobirise promos
   document.querySelectorAll('a[href*="mobirise.com"], a[href*="mobiri.se"]').forEach(el => el.remove());
 
-  // TreeWalker search for NUL1 and NUL2 text nodes anywhere in the DOM
-  const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT, null, false);
-  let node;
-  const nodesToProcess = [];
-
-  while (node = walker.nextNode()) {
-    if (node.nodeValue.includes('NUL1') || node.nodeValue.includes('NUL2')) {
-      nodesToProcess.push(node);
-    }
-  }
-
   const userTimezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
-  const formattedBuildDate = new Date().toLocaleString(undefined, {
+  const clientFormattedTime = new Date().toLocaleString(undefined, {
     dateStyle: 'medium',
     timeStyle: 'medium'
   }) + ` (${userTimezone})`;
 
-  nodesToProcess.forEach(textNode => {
+  // Universal DOM Text Node Scan
+  const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT, null, false);
+  let node;
+  const targets = [];
+
+  while (node = walker.nextNode()) {
+    if (node.nodeValue.includes('NUL1') || node.nodeValue.includes('NUL2')) {
+      targets.push(node);
+    }
+  }
+
+  targets.forEach(textNode => {
     const parent = textNode.parentNode;
     if (!parent) return;
 
     if (textNode.nodeValue.includes('NUL1')) {
       const span = document.createElement('span');
-      span.id = 'site-last-updated';
-      span.textContent = formattedBuildDate;
+      span.className = 'site-last-updated';
+      span.textContent = clientFormattedTime;
       parent.replaceChild(span, textNode);
-    } else if (textNode.nodeValue.includes('NUL2')) {
+    }
+
+    if (textNode.nodeValue.includes('NUL2')) {
       const span = document.createElement('span');
-      span.id = 'pst-live-clock';
+      span.className = 'pst-live-clock';
       span.textContent = 'Loading PST...';
       parent.replaceChild(span, textNode);
     }
   });
 
-  // Ticking Rabina Standard Time Clock for NUL2
-  function tickPST() {
-    const clockEl = document.getElementById('pst-live-clock');
+  // Ticking Rabina Standard Time Clock (Asia/Manila)
+  function updatePstClocks() {
     const nowPST = new Date().toLocaleString('en-US', {
       timeZone: 'Asia/Manila',
       dateStyle: 'medium',
       timeStyle: 'medium',
       hour12: true
-    });
+    }) + ' PST';
 
-    if (clockEl) {
-      clockEl.textContent = nowPST + ' PST';
-    }
+    document.querySelectorAll('.pst-live-clock').forEach(clock => {
+      clock.textContent = nowPST;
+    });
   }
 
-  tickPST();
-  setInterval(tickPST, 1000);
+  updatePstClocks();
+  setInterval(updatePstClocks, 1000);
 }
 
 if (document.readyState === 'loading') {
-  document.addEventListener('DOMContentLoaded', initHeroTimestamps);
+  document.addEventListener('DOMContentLoaded', () => {
+    initAndroidButton();
+    processNulPlaceholders();
+  });
 } else {
-  initHeroTimestamps();
+  initAndroidButton();
+  processNulPlaceholders();
 }
