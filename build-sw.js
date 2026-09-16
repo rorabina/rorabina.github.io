@@ -5,8 +5,13 @@ async function buildSW() {
   console.log('Cleaning HTML files, injecting manifest, adding sw-register, and building SW...');
   const htmlFiles = fs.readdirSync('./').filter(file => file.endsWith('.html'));
 
-  // Record exact ISO build timestamp for client local timezone conversion
-  const buildTimeISO = new Date().toISOString();
+  // Pre-format human readable build timestamp in UTC/PST
+  const now = new Date();
+  const buildTimeString = now.toLocaleString('en-US', {
+    dateStyle: 'medium',
+    timeStyle: 'medium',
+    timeZoneName: 'short'
+  });
 
   htmlFiles.forEach(file => {
     let content = fs.readFileSync(file, 'utf8');
@@ -59,8 +64,9 @@ async function buildSW() {
       content = content.replace(/<\/body>/i, '  <script src="sw-register.js"></script>\n</body>');
     }
 
-    // 7. Inject Build Timestamp for NUL1
-    content = content.replace(/NUL1/g, buildTimeISO);
+    // 7. Inject formatted timestamp for NUL1 & mark span container for NUL2
+    content = content.replace(/NUL1/g, buildTimeString);
+    content = content.replace(/NUL2/g, '<span id="pst-live-clock">Loading PST...</span>');
 
     fs.writeFileSync(file, content, 'utf8');
   });
