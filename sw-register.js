@@ -1,20 +1,42 @@
-// Preserve Last Visited Page in PWA Standalone Mode
-(function restorePwaState() {
+// Preserve & Restore Last Visited Page in PWA Standalone Mode
+(function managePwaState() {
   const isStandalone = window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone;
   if (!isStandalone) return;
 
-  const currentPath = window.location.pathname;
-  const lastPath = localStorage.getItem('pwa_last_page');
-
-  // Track page location when navigating across the PWA
-  if (currentPath && currentPath !== '/' && !currentPath.endsWith('index.html')) {
-    localStorage.setItem('pwa_last_page', currentPath);
+  function saveCurrentPage() {
+    const currentPath = window.location.pathname;
+    // Store path as long as it's not the root index page
+    if (currentPath && currentPath !== '/' && !currentPath.endsWith('index.html')) {
+      localStorage.setItem('pwa_last_page', currentPath);
+    }
   }
 
-  // Auto-restore last visited page on cold startup
-  if ((currentPath === '/' || currentPath.endsWith('index.html')) && lastPath && lastPath !== currentPath) {
-    window.location.replace(lastPath);
+  function restoreLastPage() {
+    const currentPath = window.location.pathname;
+    const lastPath = localStorage.getItem('pwa_last_page');
+
+    // If currently on index/root but a saved route exists, navigate to it
+    if ((currentPath === '/' || currentPath.endsWith('index.html')) && lastPath && lastPath !== currentPath) {
+      window.location.replace(lastPath);
+    }
   }
+
+  // 1. Immediately save current page on load
+  saveCurrentPage();
+
+  // 2. Restore last visited page on cold launch
+  restoreLastPage();
+
+  // 3. Handle Android background-to-foreground resume events
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'visible') {
+      restoreLastPage();
+    } else {
+      saveCurrentPage();
+    }
+  });
+
+  window.addEventListener('pageshow', restoreLastPage);
 })();
 
 // Service Worker Registration, Cache Progress, Timestamps, and Scoped Android PWA Trigger
