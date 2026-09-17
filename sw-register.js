@@ -13,16 +13,15 @@
   document.addEventListener('DOMContentLoaded', updateTheme);
 })();
 
-// Active Page & Home/Logo Reset Management for Standalone PWA Mode
+// Active Page & Precise Scroll Restoration for Standalone PWA Mode
 (function managePwaState() {
   const isStandalone = window.matchMedia('(display-mode: standalone)').matches || 
                        window.matchMedia('(display-mode: fullscreen)').matches || 
                        window.navigator.standalone;
   if (!isStandalone) return;
 
-  // Enable native browser scroll restoration so Chrome PWA remembers exact pixel coordinates
   if ('scrollRestoration' in history) {
-    history.scrollRestoration = 'auto';
+    history.scrollRestoration = 'manual';
   }
 
   function getCleanPath(urlStr) {
@@ -41,7 +40,39 @@
     return page === 'index.html' || page === '' || page === '/';
   }
 
-  // Intercept taps across the app: Reset route state when tapping Home or Brand Logo
+  function savePosition() {
+    const current = getCleanPath(window.location.href);
+    if (!isHome(current)) {
+      const y = window.scrollY || window.pageYOffset || document.documentElement.scrollTop || 0;
+      localStorage.setItem('pwa_active_route', current);
+      localStorage.setItem('pwa_scroll_y', y);
+    }
+  }
+
+  function restoreScroll() {
+    const savedY = localStorage.getItem('pwa_scroll_y');
+    if (!savedY) return;
+
+    const targetY = parseInt(savedY, 10);
+    if (isNaN(targetY) || targetY <= 0) return;
+
+    let attempts = 0;
+    const maxAttempts = 25;
+
+    function scrollLoop() {
+      attempts++;
+      window.scrollTo(0, targetY);
+
+      const docHeight = Math.max(document.body.scrollHeight, document.documentElement.scrollHeight);
+      if (docHeight < targetY + window.innerHeight && attempts < maxAttempts) {
+        setTimeout(scrollLoop, 80);
+      }
+    }
+
+    scrollLoop();
+  }
+
+  // Intercept taps across the app
   document.addEventListener('click', (e) => {
     const anchor = e.target.closest('a') || e.target.closest('[href]');
     if (anchor) {
@@ -49,25 +80,60 @@
       const targetPage = getCleanPath(targetUrl);
 
       if (isHome(targetPage)) {
-        // Clear stored route state so home always opens clean at the top
+        // Tapping Home or Logo clears saved position state completely
         localStorage.removeItem('pwa_active_route');
+        localStorage.removeItem('pwa_scroll_y');
       } else {
-        localStorage.setItem('pwa_active_route', targetPage);
+        savePosition();
       }
     }
   }, true);
 
-  // Sync state with current location without triggering page redirects
+  // Track scroll position continuously
+  window.addEventListener('scroll', () => {
+    const current = getCleanPath(window.location.href);
+    if (!isHome(current)) {
+      const y = window.scrollY || window.pageYOffset || document.documentElement.scrollTop || 0;
+      localStorage.setItem('pwa_scroll_y', y);
+    }
+  }, { passive: true });
+
+  // Handle Initial Route & Scroll Restoration
   const current = getCleanPath(window.location.href);
-  if (!isHome(current)) {
+  const savedRoute = localStorage.getItem('pwa_active_route');
+
+  if (isHome(current) && savedRoute && !isHome(savedRoute)) {
+    // Resume to the last active subpage
+    window.location.replace(savedRoute);
+  } else if (!isHome(current)) {
     localStorage.setItem('pwa_active_route', current);
+
+    if (document.readyState === 'complete') {
+      restoreScroll();
+    } else {
+      window.addEventListener('load', restoreScroll);
+      document.addEventListener('DOMContentLoaded', restoreScroll);
+    }
   }
+
+  // Preserve state on OS app suspend / background lifecycle
+  window.addEventListener('pagehide', savePosition);
+  window.addEventListener('freeze', savePosition);
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'hidden') {
+      savePosition();
+    } else if (document.visibilityState === 'visible') {
+      const activeFile = getCleanPath(window.location.href);
+      if (!isHome(activeFile)) {
+        restoreScroll();
+      }
+    }
+  });
 })();
 
-// Service Worker Registration, Cache Progress, Timestamps, and Scoped Android PWA Trigger
+// Service Worker Registration & Cache Progress Monitor
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', () => {
-    // Floating Cache Progress Bar UI
     const barContainer = document.createElement('div');
     barContainer.id = 'pwa-cache-status';
     barContainer.innerHTML = `
@@ -123,13 +189,11 @@ if ('serviceWorker' in navigator) {
       document.body.appendChild(barContainer);
     }
 
-    // Register Service Worker
     navigator.serviceWorker.register('/sw.js').then(reg => {
       console.log('SW Registered:', reg.scope);
       reg.update();
     }).catch(err => console.error('SW Registration Failed:', err));
 
-    // Monitor Cache Progress
     let checkInterval = setInterval(async () => {
       try {
         const cacheKeys = await caches.keys();
@@ -179,7 +243,7 @@ if ('serviceWorker' in navigator) {
   });
 }
 
-// Scoped Android Install Button Handling for app.html
+// Scoped Android Install Button Handling
 let deferredPrompt;
 window.addEventListener('beforeinstallprompt', (e) => {
   e.preventDefault();
@@ -209,7 +273,7 @@ function initAndroidButton() {
   }
 }
 
-// Client-side Live PST Clock Ticker & Container Space Cleaner
+// PST Clock Ticker & Watermark Cleaner
 function startLivePstClock() {
   document.querySelectorAll('a[href*="mobirise.com"], a[href*="mobiri.se"]').forEach(el => {
     const parent = el.parentElement;
