@@ -30,10 +30,19 @@ jobs:
             }
           '
 
-      - name: Inject Fullscreen Meta Tags into HTML Files
+      - name: Dynamically Update NUL1 Timestamp & Inject Fullscreen Meta Tags
         run: |
           node -e '
             const fs = require("fs");
+
+            // Format current time in Manila/PST timezone
+            const nowPST = new Date().toLocaleString("en-US", {
+              timeZone: "Asia/Manila",
+              dateStyle: "medium",
+              timeStyle: "medium",
+              hour12: true
+            }) + " PST";
+
             const tags = [
               "<!-- PWA Immersive Edge-to-Edge Meta Tags -->",
               "<meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover\">",
@@ -46,11 +55,17 @@ jobs:
             const files = fs.readdirSync(".").filter(f => f.endsWith(".html"));
             files.forEach(file => {
               let content = fs.readFileSync(file, "utf8");
+
+              // 1. Update NUL1 timestamp string dynamically across HTML markup
+              content = content.replace(/NUL1\s*-\s*[^<]+/g, "NUL1 - " + nowPST);
+
+              // 2. Inject meta tags if missing
               if (!content.includes("mobile-web-app-capable")) {
                 content = content.replace("</head>", "  " + tags + "\n</head>");
-                fs.writeFileSync(file, content);
-                console.log("Injected fullscreen tags into " + file);
               }
+
+              fs.writeFileSync(file, content);
+              console.log("Updated NUL1 timestamp and PWA tags in " + file);
             });
           '
 
@@ -59,4 +74,4 @@ jobs:
           git config --global user.name "github-actions[bot]"
           git config --global user.email "github-actions[bot]@users.noreply.github.com"
           git add .
-          git diff --quiet && git diff --staged --quiet || (git commit -m "Fix PWA cold start and preserve active route on resume [skip ci]" && git push)
+          git diff --quiet && git diff --staged --quiet || (git commit -m "Auto-update NUL1 timestamp to latest edit and fix PWA state [skip ci]" && git push)
