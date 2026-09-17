@@ -101,6 +101,15 @@
     scrollLoop();
   }
 
+  // Cold Start / Background Resume Check: Redirect back to active subpage if killed by OS
+  const currentPath = getCleanPath(window.location.href);
+  const savedRoute = localStorage.getItem('pwa_active_route');
+
+  if (isHome(currentPath) && savedRoute && !isHome(savedRoute)) {
+    window.location.replace(savedRoute);
+    return;
+  }
+
   // Global Capture Handler for Navigation & Mobirise Overrides
   document.addEventListener('click', (e) => {
     const anchor = e.target.closest('a') || e.target.closest('[href]');
@@ -119,10 +128,6 @@
       const current = getCleanPath(window.location.href);
       if (isHome(current)) {
         window.scrollTo({ top: 0, left: 0, behavior: 'instant' });
-        // Force refresh soft state if user taps Home/Logo while already at top
-        if (window.scrollY === 0) {
-          window.location.reload();
-        }
       } else {
         window.location.href = 'index.html';
       }
@@ -145,20 +150,19 @@
     }
   }, { passive: true });
 
-  // On initial load, preserve current active URL location (prevent home bounce)
-  const current = getCleanPath(window.location.href);
-  if (!isHome(current)) {
-    localStorage.setItem('pwa_active_route', current);
+  // On page load, restore scroll state if on a subpage
+  if (!isHome(currentPath)) {
+    localStorage.setItem('pwa_active_route', currentPath);
 
     if (document.readyState === 'complete') {
-      restoreScrollForPage(current);
+      restoreScrollForPage(currentPath);
     } else {
-      window.addEventListener('load', () => restoreScrollForPage(current));
-      document.addEventListener('DOMContentLoaded', () => restoreScrollForPage(current));
+      window.addEventListener('load', () => restoreScrollForPage(currentPath));
+      document.addEventListener('DOMContentLoaded', () => restoreScrollForPage(currentPath));
     }
   }
 
-  // Preserve state on app backgrounding and resume without route resetting
+  // Preserve state on OS app backgrounding and visibility change
   window.addEventListener('pagehide', saveCurrentScroll);
   window.addEventListener('freeze', saveCurrentScroll);
   document.addEventListener('visibilitychange', () => {
