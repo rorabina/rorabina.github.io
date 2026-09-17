@@ -13,7 +13,7 @@
   document.addEventListener('DOMContentLoaded', updateTheme);
 })();
 
-// Active Page & Precision Scroll Restoration for Standalone PWA Mode
+// Active Page & Page-Isolated Scroll Restoration for Standalone PWA Mode
 (function managePwaState() {
   const isStandalone = window.matchMedia('(display-mode: standalone)').matches || 
                        window.matchMedia('(display-mode: fullscreen)').matches || 
@@ -26,7 +26,8 @@
 
   function getCleanPath(urlStr) {
     try {
-      const url = new URL(urlStr || window.location.href, window.location.href);
+      if (!urlStr || urlStr === '#' || urlStr.startsWith('javascript:')) return getCleanPath(window.location.href);
+      const url = new URL(urlStr, window.location.href);
       let path = url.pathname;
       if (path.endsWith('/')) path += 'index.html';
       const page = path.substring(path.lastIndexOf('/') + 1).split('?')[0].split('#')[0];
@@ -37,101 +38,107 @@
   }
 
   function isHome(page) {
-    return page === 'index.html' || page === '' || page === '/';
+    return page === 'index.html' || page === '' || page === '/' || page.startsWith('index.html#');
   }
 
-  function savePosition() {
+  function getPageScrollKey(page) {
+    return 'pwa_scroll_' + page;
+  }
+
+  function saveCurrentScroll() {
     const current = getCleanPath(window.location.href);
     if (!isHome(current)) {
       const y = window.scrollY || window.pageYOffset || document.documentElement.scrollTop || 0;
       localStorage.setItem('pwa_active_route', current);
       if (y > 0) {
-        localStorage.setItem('pwa_scroll_y', y);
+        localStorage.setItem(getPageScrollKey(current), y);
       }
     }
   }
 
-  function restoreScroll() {
-    const savedY = localStorage.getItem('pwa_scroll_y');
+  function restoreScrollForPage(page) {
+    const savedY = localStorage.getItem(getPageScrollKey(page));
     if (!savedY) return;
 
     const targetY = parseInt(savedY, 10);
     if (isNaN(targetY) || targetY <= 0) return;
 
     let attempts = 0;
-    const maxAttempts = 30;
+    const maxAttempts = 25;
 
-    function applyScroll() {
+    function scrollLoop() {
       attempts++;
       window.scrollTo(0, targetY);
 
       const docHeight = Math.max(document.body.scrollHeight, document.documentElement.scrollHeight);
       if (docHeight < targetY + window.innerHeight && attempts < maxAttempts) {
-        requestAnimationFrame(() => setTimeout(applyScroll, 60));
+        requestAnimationFrame(() => setTimeout(scrollLoop, 80));
       }
     }
 
-    applyScroll();
+    scrollLoop();
   }
 
-  // Intercept all taps on links to immediately handle Home/Logo vs Subpages
+  // Intercept taps across the app
   document.addEventListener('click', (e) => {
-    const anchor = e.target.closest('a') || e.target.closest('[href]');
+    const anchor = e.target.closest('a') || e.target.closest('[href]') || e.target.closest('.navbar-brand');
     if (anchor) {
-      const targetUrl = anchor.getAttribute('href') || anchor.href;
+      const targetUrl = anchor.getAttribute('href') || anchor.href || '';
       const targetPage = getCleanPath(targetUrl);
 
-      if (isHome(targetPage)) {
-        // Tapping Home or Brand Logo clears saved state so you return to index cleanly
+      if (isHome(targetPage) || anchor.classList.contains('navbar-brand') || anchor.closest('.navbar-brand')) {
+        // Clear active route and scroll data when tapping Home or Logo
         localStorage.removeItem('pwa_active_route');
-        localStorage.removeItem('pwa_scroll_y');
+        Object.keys(localStorage).forEach(key => {
+          if (key.startsWith('pwa_scroll_')) localStorage.removeItem(key);
+        });
       } else {
-        savePosition();
+        // Clear destination scroll offset before navigating so new page starts clean
+        localStorage.removeItem(getPageScrollKey(targetPage));
+        saveCurrentScroll();
         localStorage.setItem('pwa_active_route', targetPage);
       }
     }
   }, true);
 
-  // Track scroll position continuously while reading
+  // Track scroll position continuously for current active page
   window.addEventListener('scroll', () => {
     const current = getCleanPath(window.location.href);
     if (!isHome(current)) {
       const y = window.scrollY || window.pageYOffset || document.documentElement.scrollTop || 0;
       if (y > 0) {
-        localStorage.setItem('pwa_scroll_y', y);
+        localStorage.setItem(getPageScrollKey(current), y);
       }
     }
   }, { passive: true });
 
-  // Handle Initial Route & Position Restoration
+  // Handle Initial Route & Page Position Restoration
   const current = getCleanPath(window.location.href);
   const savedRoute = localStorage.getItem('pwa_active_route');
 
   if (isHome(current) && savedRoute && !isHome(savedRoute)) {
-    // Redirect to the subpage last visited
     window.location.replace(savedRoute);
   } else if (!isHome(current)) {
     localStorage.setItem('pwa_active_route', current);
 
-    // Wait until DOM and Mobirise dynamic scripts complete rendering
     if (document.readyState === 'complete') {
-      restoreScroll();
+      restoreScrollForPage(current);
     } else {
-      window.addEventListener('load', restoreScroll);
-      document.addEventListener('DOMContentLoaded', restoreScroll);
+      window.addEventListener('load', () => restoreScrollForPage(current));
+      document.addEventListener('DOMContentLoaded', () => restoreScrollForPage(current));
     }
   }
 
-  // Preserve state on OS lifecycle events
-  window.addEventListener('pagehide', savePosition);
-  window.addEventListener('freeze', savePosition);
+  // Preserve state on OS app suspend / background lifecycle
+  window.addEventListener('pagehide', saveCurrentScroll);
+  window.addEventListener('freeze', saveCurrentScroll);
   document.addEventListener('visibilitychange', () => {
     if (document.visibilityState === 'hidden') {
-      savePosition();
+      saveCurrentScroll();
     } else if (document.visibilityState === 'visible') {
       const activeFile = getCleanPath(window.location.href);
       if (!isHome(activeFile)) {
-        restoreScroll();
+        restoreScrollForPage(activeFile);
       }
     }
   });
