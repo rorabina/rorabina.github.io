@@ -4,7 +4,7 @@
   "short_name": "Rorabina",
   "start_url": ".",
   "scope": "/",
-  "display": "fullscreen",
+  "display": "standalone",
   "orientation": "portrait",
   "background_color": "#ffffff",
   "theme_color": "#000000",
@@ -21,9 +21,5 @@
       "type": "image/png",
       "purpose": "any maskable"
     }
-  ],
-  "display_override": [
-    "fullscreen",
-    "minimal-ui"
   ]
 }
