@@ -54,6 +54,19 @@
     });
   }
 
+  function closeHamburgerMenu() {
+    const toggler = document.querySelector('.navbar-toggler');
+    const navbarCollapse = document.querySelector('.navbar-collapse');
+    
+    if (navbarCollapse && navbarCollapse.classList.contains('show')) {
+      if (toggler && typeof toggler.click === 'function') {
+        toggler.click();
+      } else {
+        navbarCollapse.classList.remove('show');
+      }
+    }
+  }
+
   function saveCurrentScroll() {
     const current = getCleanPath(window.location.href);
     if (!isHome(current)) {
@@ -88,7 +101,7 @@
     scrollLoop();
   }
 
-  // Intercept Home and Brand taps cleanly
+  // Global Capture Handler for Navigation & Mobirise Overrides
   document.addEventListener('click', (e) => {
     const anchor = e.target.closest('a') || e.target.closest('[href]');
     if (!anchor) return;
@@ -100,17 +113,21 @@
                           anchor.closest('.navbar-brand');
 
     if (isBrandOrHome) {
-      e.preventDefault();
-      e.stopPropagation();
+      closeHamburgerMenu();
       clearAllPwaState();
 
       const current = getCleanPath(window.location.href);
       if (isHome(current)) {
         window.scrollTo({ top: 0, left: 0, behavior: 'instant' });
+        // Force refresh soft state if user taps Home/Logo while already at top
+        if (window.scrollY === 0) {
+          window.location.reload();
+        }
       } else {
         window.location.href = 'index.html';
       }
     } else {
+      closeHamburgerMenu();
       localStorage.removeItem(getScrollKey(targetPage));
       saveCurrentScroll();
       localStorage.setItem('pwa_active_route', targetPage);
@@ -128,7 +145,7 @@
     }
   }, { passive: true });
 
-  // On page load, restore scroll state only if currently viewing a subpage
+  // On initial load, preserve current active URL location (prevent home bounce)
   const current = getCleanPath(window.location.href);
   if (!isHome(current)) {
     localStorage.setItem('pwa_active_route', current);
@@ -141,7 +158,7 @@
     }
   }
 
-  // Preserve state when switching apps / returning from background
+  // Preserve state on app backgrounding and resume without route resetting
   window.addEventListener('pagehide', saveCurrentScroll);
   window.addEventListener('freeze', saveCurrentScroll);
   document.addEventListener('visibilitychange', () => {
