@@ -45,7 +45,7 @@
   }
 })();
 
-// 3. Disable Mobirise Animations & Edge-to-Edge Layout Rules
+// 3. Disable Mobirise Animations & Force Edge-to-Edge Container Heights
 (function applyEdgeToEdgeStyles() {
   const style = document.createElement('style');
   style.id = 'pwa-edge-to-edge';
@@ -55,6 +55,7 @@
       padding-top: 0 !important;
       margin-top: 0 !important;
       width: 100% !important;
+      background-color: #000000 !important;
     }
     *, *::before, *::after {
       animation: none !important;
@@ -72,7 +73,7 @@
   document.head.appendChild(style);
 })();
 
-// 4. Preserve Active Route & Prevent Reset to Index on Resume
+// 4. Preserve Active Route, Hydrate State & Retain Immersive Viewport
 (function managePwaState() {
   const isStandalone = window.matchMedia('(display-mode: standalone)').matches || 
                        window.matchMedia('(display-mode: fullscreen)').matches || 
@@ -96,12 +97,6 @@
     } catch (e) {
       return 'index.html';
     }
-  }
-
-  function isHome(page) {
-    if (!page) return true;
-    const clean = page.toLowerCase().split('?')[0].split('#')[0];
-    return clean === 'index.html' || clean === '' || clean === '/' || clean === 'index';
   }
 
   function getScrollKey(page) {
@@ -140,14 +135,12 @@
     scrollLoop();
   }
 
-  // Record scroll positions passively
   window.addEventListener('scroll', () => {
     const current = getCleanPath(window.location.href);
     const y = window.scrollY || window.pageYOffset || document.documentElement.scrollTop || 0;
     localStorage.setItem(getScrollKey(current), y);
   }, { passive: true });
 
-  // Save current state on hide/freeze
   window.addEventListener('pagehide', saveCurrentScroll);
   window.addEventListener('freeze', saveCurrentScroll);
   document.addEventListener('visibilitychange', () => {
@@ -159,7 +152,6 @@
     }
   });
 
-  // Restore scroll position on initial load without forcing redirects
   const current = getCleanPath(window.location.href);
   if (document.readyState === 'complete') {
     restoreScrollForPage(current);
@@ -168,27 +160,21 @@
   }
 })();
 
-// 5. Service Worker Registration & Cache Progress Monitor
-if ('serviceWorker' in navigator) {
-  window.addEventListener('load', () => {
-    navigator.serviceWorker.register('/sw.js').then(reg => {
-      console.log('SW Registered:', reg.scope);
-      reg.update();
-    }).catch(err => console.error('SW Registration Failed:', err));
-  });
-}
-
-// 6. PST Clock Ticker & Watermark Cleaner
-function startLivePstClock() {
-  document.querySelectorAll('a[href*="mobirise.com"], a[href*="mobiri.se"]').forEach(el => {
-    const parent = el.parentElement;
-    el.remove();
-    if (parent && parent.textContent.trim() === '') {
-      parent.remove();
-    }
-  });
+// 5. Universal PST Live Clock Ticker & Watermark Cleaner
+(function startLivePstClock() {
+  function removeWatermarks() {
+    document.querySelectorAll('a[href*="mobirise.com"], a[href*="mobiri.se"]').forEach(el => {
+      const parent = el.parentElement;
+      el.remove();
+      if (parent && parent.textContent.trim() === '') {
+        parent.remove();
+      }
+    });
+  }
 
   function updatePstClocks() {
+    removeWatermarks();
+
     const nowPST = new Date().toLocaleString('en-US', {
       timeZone: 'Asia/Manila',
       dateStyle: 'medium',
@@ -196,17 +182,27 @@ function startLivePstClock() {
       hour12: true
     }) + ' PST';
 
-    document.querySelectorAll('.pst-live-clock').forEach(clock => {
+    // Target class, ID, and data attributes across all custom components
+    const clockElements = document.querySelectorAll('.pst-live-clock, .pst-clock, #pst-clock, [data-pst-clock]');
+    clockElements.forEach(clock => {
       clock.textContent = nowPST;
     });
   }
 
   updatePstClocks();
   setInterval(updatePstClocks, 1000);
-}
 
-if (document.readyState === 'loading') {
-  document.addEventListener('DOMContentLoaded', startLivePstClock);
-} else {
-  startLivePstClock();
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', updatePstClocks);
+  }
+})();
+
+// 6. Service Worker Registration
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('/sw.js').then(reg => {
+      console.log('SW Registered:', reg.scope);
+      reg.update();
+    }).catch(err => console.error('SW Registration Failed:', err));
+  });
 }
