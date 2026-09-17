@@ -13,7 +13,7 @@
   document.addEventListener('DOMContentLoaded', updateTheme);
 })();
 
-// Active Page & Page-Isolated Scroll Restoration for Standalone PWA Mode
+// Active Page & Page-Isolated Instant Scroll Restoration for Standalone PWA Mode
 (function managePwaState() {
   const isStandalone = window.matchMedia('(display-mode: standalone)').matches || 
                        window.matchMedia('(display-mode: fullscreen)').matches || 
@@ -47,6 +47,13 @@
     return 'pwa_scroll_' + page;
   }
 
+  function clearAllPwaState() {
+    localStorage.removeItem('pwa_active_route');
+    Object.keys(localStorage).forEach(key => {
+      if (key.startsWith('pwa_scroll_')) localStorage.removeItem(key);
+    });
+  }
+
   function saveCurrentScroll() {
     const current = getCleanPath(window.location.href);
     if (!isHome(current)) {
@@ -66,44 +73,54 @@
     if (isNaN(targetY) || targetY <= 0) return;
 
     let attempts = 0;
-    const maxAttempts = 25;
+    const maxAttempts = 20;
 
     function scrollLoop() {
       attempts++;
-      window.scrollTo(0, targetY);
+      // Instant jump without smooth scroll animation
+      window.scrollTo({ top: targetY, left: 0, behavior: 'instant' });
 
       const docHeight = Math.max(document.body.scrollHeight, document.documentElement.scrollHeight);
       if (docHeight < targetY + window.innerHeight && attempts < maxAttempts) {
-        requestAnimationFrame(() => setTimeout(scrollLoop, 80));
+        requestAnimationFrame(scrollLoop);
       }
     }
 
     scrollLoop();
   }
 
-  // Intercept taps across the app
+  // Intercept taps across the app in capturing phase to override script hijacking
   document.addEventListener('click', (e) => {
     const anchor = e.target.closest('a') || e.target.closest('[href]') || e.target.closest('.navbar-brand');
-    if (anchor) {
-      const targetUrl = anchor.getAttribute('href') || anchor.href || '';
-      const targetPage = getCleanPath(targetUrl);
+    if (!anchor) return;
 
-      if (isHome(targetPage) || anchor.classList.contains('navbar-brand') || anchor.closest('.navbar-brand')) {
-        // Clear active route and all saved scroll keys when tapping Home or Brand Logo
-        localStorage.removeItem('pwa_active_route');
-        Object.keys(localStorage).forEach(key => {
-          if (key.startsWith('pwa_scroll_')) localStorage.removeItem(key);
-        });
+    const targetUrl = anchor.getAttribute('href') || anchor.href || '';
+    const targetPage = getCleanPath(targetUrl);
+    const isBrandOrHome = isHome(targetPage) || 
+                          anchor.classList.contains('navbar-brand') || 
+                          anchor.closest('.navbar-brand') ||
+                          targetUrl.includes('index.html');
+
+    if (isBrandOrHome) {
+      e.preventDefault();
+      e.stopPropagation();
+      clearAllPwaState();
+
+      // Force hard jump to index.html bypasses smooth scroll blockers
+      const current = getCleanPath(window.location.href);
+      if (isHome(current)) {
+        window.scrollTo({ top: 0, left: 0, behavior: 'instant' });
       } else {
-        // Clear target page scroll key before navigating so it opens at top (0,0)
-        localStorage.removeItem(getScrollKey(targetPage));
-        saveCurrentScroll();
-        localStorage.setItem('pwa_active_route', targetPage);
+        window.location.href = 'index.html';
       }
+    } else {
+      localStorage.removeItem(getScrollKey(targetPage));
+      saveCurrentScroll();
+      localStorage.setItem('pwa_active_route', targetPage);
     }
-  }, false);
+  }, true);
 
-  // Track scroll position continuously for current active page
+  // Continuously record position while reading
   window.addEventListener('scroll', () => {
     const current = getCleanPath(window.location.href);
     if (!isHome(current)) {
@@ -131,7 +148,7 @@
     }
   }
 
-  // Preserve state on OS app suspend / background lifecycle (without deprecated unload)
+  // Preserve state on OS background / suspend lifecycle
   window.addEventListener('pagehide', saveCurrentScroll);
   window.addEventListener('freeze', saveCurrentScroll);
   document.addEventListener('visibilitychange', () => {
