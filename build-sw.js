@@ -2,7 +2,7 @@ const workboxBuild = require('workbox-build');
 const fs = require('fs');
 
 async function buildSW() {
-  console.log('Automated Build Pipeline: Injecting layout controls, dynamic theme color, & cleaning output...');
+  console.log('Automated Build Pipeline: Injecting mobile layout protections, copy locks, & cleaning output...');
   
   const htmlFiles = fs.readdirSync('./').filter(file => file.endsWith('.html'));
 
@@ -30,7 +30,7 @@ async function buildSW() {
     content = content.replace(/<a[^>]*href="https?:\/\/(www\.)?(mobirise\.com|mobiri\.se)[^"]*"[^>]*>[\s\S]*?<\/a>/gi, '');
     content = content.replace(/<section[^>]*class="[^"]*engine[^"]*"[^>]*>[\s\S]*?<\/section>/gi, '');
 
-    // 3. Inject CSS Fail-Safe + Disable Text Selection + Anti-Zoom & Context Locks
+    // 3. Inject CSS Fail-Safe + Disable Text Selection / Copying Rules
     if (!content.includes('/* Mobirise Fail-Safe */')) {
       const styleInject = `
 <style id="mobirise-cleaner">
