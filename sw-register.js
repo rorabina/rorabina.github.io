@@ -13,17 +13,17 @@
   document.addEventListener('DOMContentLoaded', updateTheme);
 })();
 
-// 2. Disable Mobirise Animations for Instant Jumps
-(function disableMobiriseAnimations() {
+// 2. Kill Mobirise Smooth Scroll & Animations for Instant Link Jumps
+(function killMobiriseAnimations() {
   const style = document.createElement('style');
+  style.id = 'pwa-no-animations';
   style.innerHTML = `
+    html, body {
+      scroll-behavior: auto !important;
+    }
     *, *::before, *::after {
       animation: none !important;
       transition: none !important;
-      scroll-behavior: auto !important;
-    }
-    .animated {
-      animation: none !important;
     }
   `;
   document.head.appendChild(style);
@@ -59,6 +59,18 @@
     if (!page) return true;
     const clean = page.toLowerCase().split('?')[0].split('#')[0];
     return clean === 'index.html' || clean === '' || clean === '/' || clean === 'index';
+  }
+
+  function isHomeLink(anchor) {
+    if (!anchor) return false;
+    const href = (anchor.getAttribute('href') || anchor.href || '').toLowerCase();
+    const cleanPage = getCleanPath(href);
+    
+    return isHome(cleanPage) || 
+           anchor.classList.contains('navbar-brand') || 
+           !!anchor.closest('.navbar-brand') ||
+           href === '/' || 
+           href.includes('index.html');
   }
 
   function getScrollKey(page) {
@@ -106,44 +118,49 @@
     scrollLoop();
   }
 
-  // Handle standard link clicks without hijacking Bootstrap dropdowns or sub-menus
+  // Intercept all taps across the app
   document.addEventListener('click', (e) => {
     const anchor = e.target.closest('a') || e.target.closest('[href]');
     if (!anchor) return;
 
-    // Allow dropdown toggles to function normally
-    if (anchor.classList.contains('dropdown-toggle') || anchor.getAttribute('data-toggle') === 'dropdown' || anchor.getAttribute('data-bs-toggle') === 'dropdown') {
+    // Allow Bootstrap dropdown toggles to function natively
+    if (anchor.classList.contains('dropdown-toggle') || 
+        anchor.getAttribute('data-toggle') === 'dropdown' || 
+        anchor.getAttribute('data-bs-toggle') === 'dropdown') {
       return;
     }
 
-    const targetUrl = anchor.getAttribute('href') || anchor.href || '';
-    
-    // Ignore pure anchor toggles on the same page
-    if (targetUrl === '#' || targetUrl.startsWith('javascript:')) return;
+    // Explicit check for Home or Brand logo click
+    if (isHomeLink(anchor)) {
+      e.preventDefault();
+      e.stopPropagation();
+      closeHamburgerMenu();
 
-    const targetPage = getCleanPath(targetUrl);
-    const isBrandOrHome = isHome(targetPage) || 
-                          anchor.classList.contains('navbar-brand') || 
-                          anchor.closest('.navbar-brand');
-
-    closeHamburgerMenu();
-
-    if (isBrandOrHome) {
-      // Clear route memory so PWA re-opens at index
+      // Wipe active route memory completely
       localStorage.removeItem('pwa_active_route');
 
       const current = getCleanPath(window.location.href);
       if (isHome(current)) {
         window.scrollTo({ top: 0, left: 0, behavior: 'instant' });
+      } else {
+        window.location.href = 'index.html';
       }
-    } else {
-      localStorage.removeItem(getScrollKey(targetPage));
-      saveCurrentScroll();
-      localStorage.setItem('pwa_active_route', targetPage);
+      return;
     }
-  });
 
-  // Track position continuously while reading subpages
+    // Subpage Navigation
+    const targetUrl = anchor.getAttribute('href') || anchor.href || '';
+    if (targetUrl === '#' || targetUrl.startsWith('javascript:')) return;
+
+    const targetPage = getCleanPath(targetUrl);
+    closeHamburgerMenu();
+
+    localStorage.removeItem(getScrollKey(targetPage));
+    saveCurrentScroll();
+    localStorage.setItem('pwa_active_route', targetPage);
+  }, true);
+
+  // Track position continuously while on subpages
   window.addEventListener('scroll', () => {
     const current = getCleanPath(window.location.href);
     if (!isHome(current)) {
@@ -154,7 +171,7 @@
     }
   }, { passive: true });
 
-  // Evaluate routing and restore state on startup
+  // Evaluate routing and restore state on app startup
   const current = getCleanPath(window.location.href);
   const saved = localStorage.getItem('pwa_active_route');
 
@@ -171,7 +188,7 @@
     window.location.replace(saved);
   }
 
-  // Preserve state on app background/suspend
+  // Preserve state on app suspend/background
   window.addEventListener('pagehide', saveCurrentScroll);
   window.addEventListener('freeze', saveCurrentScroll);
   document.addEventListener('visibilitychange', () => {
