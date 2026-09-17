@@ -4,7 +4,10 @@
   "short_name": "Rorabina",
   "start_url": ".",
   "scope": "/",
-  "display_override": ["fullscreen", "minimal-ui"],
+  "display_override": [
+    "fullscreen",
+    "minimal-ui"
+  ],
   "display": "fullscreen",
   "orientation": "portrait",
   "background_color": "#ffffff",
