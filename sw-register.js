@@ -1,4 +1,4 @@
-// 1. Dynamic Status Bar Theme Color
+// 1. Dynamic Status Bar Theme Color (Transparent Edge-to-Edge)
 (function initThemeColor() {
   function updateTheme() {
     let metaTheme = document.querySelector('meta[name="theme-color"]');
@@ -7,7 +7,7 @@
       metaTheme.name = 'theme-color';
       document.head.appendChild(metaTheme);
     }
-    metaTheme.setAttribute('content', '#000000');
+    metaTheme.setAttribute('content', '#00000000');
   }
   updateTheme();
   document.addEventListener('DOMContentLoaded', updateTheme);
@@ -18,7 +18,6 @@
   function patchDropdownAttributes() {
     const dropdownToggles = document.querySelectorAll('.dropdown-toggle');
     dropdownToggles.forEach(toggle => {
-      // Ensure both Bootstrap 4 and Bootstrap 5 toggle attributes exist
       if (!toggle.getAttribute('data-toggle')) {
         toggle.setAttribute('data-toggle', 'dropdown');
       }
@@ -35,24 +34,27 @@
   }
 })();
 
-// 3. Disable Mobirise Animations & Stretch Navbar Edge-to-Edge into Status Bar
+// 3. Disable Mobirise Animations & Force Navbar Edge-to-Edge Behind Status Bar
 (function applyEdgeToEdgeStyles() {
   const style = document.createElement('style');
   style.id = 'pwa-edge-to-edge';
   style.innerHTML = `
     html, body {
       scroll-behavior: auto !important;
+      padding-top: 0 !important;
+      margin-top: 0 !important;
     }
     *, *::before, *::after {
       animation: none !important;
       transition: none !important;
     }
-    /* Stretch top navigation bar into the status bar area */
+    /* Pull top navbar into the status bar space */
     .navbar, 
     .navbar.fixed-top, 
     .navbar-dropdown,
     header {
-      padding-top: env(safe-area-inset-top, 0px) !important;
+      top: 0 !important;
+      padding-top: max(16px, env(safe-area-inset-top, 0px)) !important;
       background-clip: padding-box;
     }
   `;
