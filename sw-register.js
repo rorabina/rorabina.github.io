@@ -13,7 +13,7 @@
   document.addEventListener('DOMContentLoaded', updateTheme);
 })();
 
-// Active Page & Precise Scroll Restoration for Standalone PWA Mode
+// Active Page & Precision Scroll Restoration for Standalone PWA Mode
 (function managePwaState() {
   const isStandalone = window.matchMedia('(display-mode: standalone)').matches || 
                        window.matchMedia('(display-mode: fullscreen)').matches || 
@@ -45,7 +45,9 @@
     if (!isHome(current)) {
       const y = window.scrollY || window.pageYOffset || document.documentElement.scrollTop || 0;
       localStorage.setItem('pwa_active_route', current);
-      localStorage.setItem('pwa_scroll_y', y);
+      if (y > 0) {
+        localStorage.setItem('pwa_scroll_y', y);
+      }
     }
   }
 
@@ -57,22 +59,22 @@
     if (isNaN(targetY) || targetY <= 0) return;
 
     let attempts = 0;
-    const maxAttempts = 25;
+    const maxAttempts = 30;
 
-    function scrollLoop() {
+    function applyScroll() {
       attempts++;
       window.scrollTo(0, targetY);
 
       const docHeight = Math.max(document.body.scrollHeight, document.documentElement.scrollHeight);
       if (docHeight < targetY + window.innerHeight && attempts < maxAttempts) {
-        setTimeout(scrollLoop, 80);
+        requestAnimationFrame(() => setTimeout(applyScroll, 60));
       }
     }
 
-    scrollLoop();
+    applyScroll();
   }
 
-  // Intercept taps across the app
+  // Intercept all taps on links to immediately handle Home/Logo vs Subpages
   document.addEventListener('click', (e) => {
     const anchor = e.target.closest('a') || e.target.closest('[href]');
     if (anchor) {
@@ -80,34 +82,38 @@
       const targetPage = getCleanPath(targetUrl);
 
       if (isHome(targetPage)) {
-        // Tapping Home or Logo clears saved position state completely
+        // Tapping Home or Brand Logo clears saved state so you return to index cleanly
         localStorage.removeItem('pwa_active_route');
         localStorage.removeItem('pwa_scroll_y');
       } else {
         savePosition();
+        localStorage.setItem('pwa_active_route', targetPage);
       }
     }
   }, true);
 
-  // Track scroll position continuously
+  // Track scroll position continuously while reading
   window.addEventListener('scroll', () => {
     const current = getCleanPath(window.location.href);
     if (!isHome(current)) {
       const y = window.scrollY || window.pageYOffset || document.documentElement.scrollTop || 0;
-      localStorage.setItem('pwa_scroll_y', y);
+      if (y > 0) {
+        localStorage.setItem('pwa_scroll_y', y);
+      }
     }
   }, { passive: true });
 
-  // Handle Initial Route & Scroll Restoration
+  // Handle Initial Route & Position Restoration
   const current = getCleanPath(window.location.href);
   const savedRoute = localStorage.getItem('pwa_active_route');
 
   if (isHome(current) && savedRoute && !isHome(savedRoute)) {
-    // Resume to the last active subpage
+    // Redirect to the subpage last visited
     window.location.replace(savedRoute);
   } else if (!isHome(current)) {
     localStorage.setItem('pwa_active_route', current);
 
+    // Wait until DOM and Mobirise dynamic scripts complete rendering
     if (document.readyState === 'complete') {
       restoreScroll();
     } else {
@@ -116,7 +122,7 @@
     }
   }
 
-  // Preserve state on OS app suspend / background lifecycle
+  // Preserve state on OS lifecycle events
   window.addEventListener('pagehide', savePosition);
   window.addEventListener('freeze', savePosition);
   document.addEventListener('visibilitychange', () => {
