@@ -13,7 +13,7 @@
   document.addEventListener('DOMContentLoaded', updateTheme);
 })();
 
-// Active Page & Instant Scroll Restoration for Standalone PWA Mode
+// Active Page & Page-Isolated Instant Scroll Restoration for Standalone PWA Mode
 (function managePwaState() {
   const isStandalone = window.matchMedia('(display-mode: standalone)').matches || 
                        window.matchMedia('(display-mode: fullscreen)').matches || 
@@ -88,43 +88,29 @@
     scrollLoop();
   }
 
-  // Sanitize Brand / Home links by removing external Mobirise event listeners
-  function neutralizeMobiriseHomeLinks() {
-    const homeElements = document.querySelectorAll('.navbar-brand, a[href*="index.html"], a[href="#top"], a[href="./"], a[href="/"]');
-    homeElements.forEach(el => {
-      const clone = el.cloneNode(true);
-      el.parentNode.replaceChild(clone, el);
-
-      clone.addEventListener('click', (e) => {
-        e.preventDefault();
-        e.stopPropagation();
-        clearAllPwaState();
-
-        const current = getCleanPath(window.location.href);
-        if (isHome(current)) {
-          window.scrollTo({ top: 0, left: 0, behavior: 'instant' });
-        } else {
-          window.location.href = 'index.html';
-        }
-      }, true);
-    });
-  }
-
-  if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', neutralizeMobiriseHomeLinks);
-  } else {
-    neutralizeMobiriseHomeLinks();
-  }
-
-  // Standard Link Tap Tracker for Subpages
+  // Intercept Home and Brand taps cleanly
   document.addEventListener('click', (e) => {
     const anchor = e.target.closest('a') || e.target.closest('[href]');
     if (!anchor) return;
 
     const targetUrl = anchor.getAttribute('href') || anchor.href || '';
     const targetPage = getCleanPath(targetUrl);
+    const isBrandOrHome = isHome(targetPage) || 
+                          anchor.classList.contains('navbar-brand') || 
+                          anchor.closest('.navbar-brand');
 
-    if (!isHome(targetPage)) {
+    if (isBrandOrHome) {
+      e.preventDefault();
+      e.stopPropagation();
+      clearAllPwaState();
+
+      const current = getCleanPath(window.location.href);
+      if (isHome(current)) {
+        window.scrollTo({ top: 0, left: 0, behavior: 'instant' });
+      } else {
+        window.location.href = 'index.html';
+      }
+    } else {
       localStorage.removeItem(getScrollKey(targetPage));
       saveCurrentScroll();
       localStorage.setItem('pwa_active_route', targetPage);
@@ -142,9 +128,8 @@
     }
   }, { passive: true });
 
-  // Handle Initial Route & Page Position Restoration (No Page Flash)
+  // On page load, restore scroll state only if currently viewing a subpage
   const current = getCleanPath(window.location.href);
-
   if (!isHome(current)) {
     localStorage.setItem('pwa_active_route', current);
 
@@ -156,7 +141,7 @@
     }
   }
 
-  // Preserve state on OS background / suspend lifecycle
+  // Preserve state when switching apps / returning from background
   window.addEventListener('pagehide', saveCurrentScroll);
   window.addEventListener('freeze', saveCurrentScroll);
   document.addEventListener('visibilitychange', () => {
