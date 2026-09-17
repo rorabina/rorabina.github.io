@@ -13,7 +13,7 @@
   document.addEventListener('DOMContentLoaded', updateTheme);
 })();
 
-// Active Page & Page-Isolated Instant Scroll Restoration for Standalone PWA Mode
+// Session-Isolated PWA Route & Scroll State Manager
 (function managePwaState() {
   const isStandalone = window.matchMedia('(display-mode: standalone)').matches || 
                        window.matchMedia('(display-mode: fullscreen)').matches || 
@@ -47,8 +47,8 @@
     return 'pwa_scroll_' + page;
   }
 
-  function clearAllPwaState() {
-    localStorage.removeItem('pwa_active_route');
+  function clearPwaSession() {
+    sessionStorage.removeItem('pwa_active_route');
     Object.keys(localStorage).forEach(key => {
       if (key.startsWith('pwa_scroll_')) localStorage.removeItem(key);
     });
@@ -71,7 +71,7 @@
     const current = getCleanPath(window.location.href);
     if (!isHome(current)) {
       const y = window.scrollY || window.pageYOffset || document.documentElement.scrollTop || 0;
-      localStorage.setItem('pwa_active_route', current);
+      sessionStorage.setItem('pwa_active_route', current);
       if (y > 0) {
         localStorage.setItem(getScrollKey(current), y);
       }
@@ -101,16 +101,16 @@
     scrollLoop();
   }
 
-  // Cold Start / Background Resume Check: Redirect back to active subpage if killed by OS
+  // Session Restoration Check: Re-route ONLY if session active route exists
   const currentPath = getCleanPath(window.location.href);
-  const savedRoute = localStorage.getItem('pwa_active_route');
+  const activeSessionRoute = sessionStorage.getItem('pwa_active_route');
 
-  if (isHome(currentPath) && savedRoute && !isHome(savedRoute)) {
-    window.location.replace(savedRoute);
+  if (isHome(currentPath) && activeSessionRoute && !isHome(activeSessionRoute)) {
+    window.location.replace(activeSessionRoute);
     return;
   }
 
-  // Global Capture Handler for Navigation & Mobirise Overrides
+  // Global Event Capture for Navigation, Brand Clicks & Mobirise Overrides
   document.addEventListener('click', (e) => {
     const anchor = e.target.closest('a') || e.target.closest('[href]');
     if (!anchor) return;
@@ -122,8 +122,10 @@
                           anchor.closest('.navbar-brand');
 
     if (isBrandOrHome) {
+      e.preventDefault();
+      e.stopPropagation();
       closeHamburgerMenu();
-      clearAllPwaState();
+      clearPwaSession();
 
       const current = getCleanPath(window.location.href);
       if (isHome(current)) {
@@ -135,11 +137,11 @@
       closeHamburgerMenu();
       localStorage.removeItem(getScrollKey(targetPage));
       saveCurrentScroll();
-      localStorage.setItem('pwa_active_route', targetPage);
+      sessionStorage.setItem('pwa_active_route', targetPage);
     }
   }, true);
 
-  // Track position continuously while reading
+  // Track position continuously while scrolling
   window.addEventListener('scroll', () => {
     const current = getCleanPath(window.location.href);
     if (!isHome(current)) {
@@ -150,9 +152,9 @@
     }
   }, { passive: true });
 
-  // On page load, restore scroll state if on a subpage
+  // Restore scroll state when viewing subpage
   if (!isHome(currentPath)) {
-    localStorage.setItem('pwa_active_route', currentPath);
+    sessionStorage.setItem('pwa_active_route', currentPath);
 
     if (document.readyState === 'complete') {
       restoreScrollForPage(currentPath);
@@ -162,7 +164,7 @@
     }
   }
 
-  // Preserve state on OS app backgrounding and visibility change
+  // Preserve state on OS background / suspend lifecycle
   window.addEventListener('pagehide', saveCurrentScroll);
   window.addEventListener('freeze', saveCurrentScroll);
   document.addEventListener('visibilitychange', () => {
