@@ -1,24 +1,46 @@
-// Preserve & Restore Active Page State in Standalone / Fullscreen PWA Mode
+// Dynamic Status Bar Theme Color
+(function initThemeColor() {
+  function updateTheme() {
+    let metaTheme = document.querySelector('meta[name="theme-color"]');
+    if (!metaTheme) {
+      metaTheme = document.createElement('meta');
+      metaTheme.name = 'theme-color';
+      document.head.appendChild(metaTheme);
+    }
+    metaTheme.setAttribute('content', '#000000');
+  }
+  updateTheme();
+  document.addEventListener('DOMContentLoaded', updateTheme);
+})();
+
+// Preserve & Restore Active Page State in Standalone PWA Mode
 (function managePwaState() {
   const isStandalone = window.matchMedia('(display-mode: standalone)').matches || 
                        window.matchMedia('(display-mode: fullscreen)').matches || 
                        window.navigator.standalone;
   if (!isStandalone) return;
 
-  function getCurrentFilename() {
-    const path = window.location.pathname;
-    const page = path.substring(path.lastIndexOf('/') + 1).split('?')[0].split('#')[0];
-    return page === '' ? 'index.html' : page;
+  function getCurrentFilename(urlStr) {
+    const target = urlStr || window.location.href;
+    try {
+      const url = new URL(target, window.location.href);
+      const path = url.pathname;
+      const page = path.substring(path.lastIndexOf('/') + 1).split('?')[0].split('#')[0];
+      return page === '' ? 'index.html' : page;
+    } catch (e) {
+      return 'index.html';
+    }
   }
 
   function isIndex(page) {
-    return page === 'index.html' || page === '' || page === '/';
+    return page === 'index.html' || page === '' || page === '/' || page.endsWith('index.html');
   }
 
-  function saveCurrentRoute() {
-    const page = getCurrentFilename();
+  function saveCurrentRoute(page) {
     if (!isIndex(page)) {
       localStorage.setItem('pwa_active_route', page);
+    } else {
+      localStorage.removeItem('pwa_active_route');
     }
   }
 
@@ -26,45 +48,41 @@
     const current = getCurrentFilename();
     const saved = localStorage.getItem('pwa_active_route');
 
-    // Only redirect if currently on index page and a valid subpage is saved
-    if (isIndex(current) && saved && !isIndex(saved) && current !== saved) {
+    if (isIndex(current) && saved && !isIndex(saved)) {
       window.location.replace(saved);
     }
   }
 
-  // Intercept navigation clicks globally
+  // Event Capture Listener: Handles home/logo link clicks to clear stored route
   document.addEventListener('click', (e) => {
     const anchor = e.target.closest('a');
     if (anchor && anchor.href) {
-      try {
-        const url = new URL(anchor.href, window.location.href);
-        if (url.origin === window.location.origin) {
-          const targetPage = url.pathname.substring(url.pathname.lastIndexOf('/') + 1);
-          if (isIndex(targetPage)) {
-            localStorage.removeItem('pwa_active_route');
-          } else {
-            localStorage.setItem('pwa_active_route', targetPage);
-          }
-        }
-      } catch (err) {
-        console.error('PWA Navigation capture error:', err);
+      const targetPage = getCurrentFilename(anchor.href);
+      if (isIndex(targetPage)) {
+        localStorage.removeItem('pwa_active_route');
+      } else {
+        localStorage.setItem('pwa_active_route', targetPage);
       }
     }
   }, true);
 
-  // Execute initial check
-  if (!isIndex(getCurrentFilename())) {
-    saveCurrentRoute();
+  // Initial Route Sync
+  const currentFile = getCurrentFilename();
+  if (!isIndex(currentFile)) {
+    saveCurrentRoute(currentFile);
   } else {
     restoreRoute();
   }
 
-  // Handle app foreground resume
+  // Handle App Foreground Resume
   document.addEventListener('visibilitychange', () => {
     if (document.visibilityState === 'visible') {
       restoreRoute();
     } else {
-      saveCurrentRoute();
+      const activeFile = getCurrentFilename();
+      if (!isIndex(activeFile)) {
+        saveCurrentRoute(activeFile);
+      }
     }
   });
 })();
