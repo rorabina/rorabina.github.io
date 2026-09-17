@@ -13,7 +13,7 @@
   document.addEventListener('DOMContentLoaded', updateTheme);
 })();
 
-// Preserve & Restore Active Page State in Standalone PWA Mode
+// Preserve & Restore Active Page State + Scroll Position in Standalone PWA Mode
 (function managePwaState() {
   const isStandalone = window.matchMedia('(display-mode: standalone)').matches || 
                        window.matchMedia('(display-mode: fullscreen)').matches || 
@@ -36,7 +36,25 @@
     return page === 'index.html' || page === '' || page === '/';
   }
 
-  // Intercept all taps on the site to sync navigation intent immediately
+  function saveScrollPosition() {
+    const current = getCleanPath(window.location.href);
+    if (!isHome(current)) {
+      localStorage.setItem('pwa_active_scroll', window.scrollY || window.pageYOffset || 0);
+    }
+  }
+
+  function restoreScrollPosition() {
+    const savedScroll = localStorage.getItem('pwa_active_scroll');
+    if (savedScroll !== null) {
+      const y = parseInt(savedScroll, 10);
+      // Attempt immediate scroll + delayed scroll to account for image/layout load
+      window.scrollTo(0, y);
+      setTimeout(() => window.scrollTo(0, y), 100);
+      setTimeout(() => window.scrollTo(0, y), 300);
+    }
+  }
+
+  // Intercept taps across the app to update state immediately
   document.addEventListener('click', (e) => {
     const anchor = e.target.closest('a') || e.target.closest('[href]');
     if (anchor) {
@@ -44,23 +62,50 @@
       const targetPage = getCleanPath(targetUrl);
 
       if (isHome(targetPage)) {
-        // Clear home lock immediately when Home or Logo is tapped
+        // Clear route & scroll memory on Home/Logo tap
         localStorage.removeItem('pwa_active_route');
+        localStorage.removeItem('pwa_active_scroll');
       } else {
+        saveScrollPosition();
         localStorage.setItem('pwa_active_route', targetPage);
       }
     }
   }, true);
 
-  // Restore active page ONLY when opening/resuming the app directly on root index
+  // Track scroll changes continuously
+  window.addEventListener('scroll', () => {
+    const current = getCleanPath(window.location.href);
+    if (!isHome(current)) {
+      localStorage.setItem('pwa_active_scroll', window.scrollY || window.pageYOffset || 0);
+    }
+  }, { passive: true });
+
+  // Handle Initial Load & State Restoration
   const current = getCleanPath(window.location.href);
-  const saved = localStorage.getItem('pwa_active_route');
+  const savedRoute = localStorage.getItem('pwa_active_route');
 
   if (!isHome(current)) {
     localStorage.setItem('pwa_active_route', current);
-  } else if (saved && !isHome(saved)) {
-    window.location.replace(saved);
+    if (document.readyState === 'complete') {
+      restoreScrollPosition();
+    } else {
+      window.addEventListener('load', restoreScrollPosition);
+    }
+  } else if (savedRoute && !isHome(savedRoute)) {
+    window.location.replace(savedRoute);
   }
+
+  // Save scroll position when minimizing or backgrounding the PWA
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'hidden') {
+      saveScrollPosition();
+    } else if (document.visibilityState === 'visible') {
+      const activeFile = getCleanPath(window.location.href);
+      if (!isHome(activeFile)) {
+        restoreScrollPosition();
+      }
+    }
+  });
 })();
 
 // Service Worker Registration, Cache Progress, Timestamps, and Scoped Android PWA Trigger
