@@ -39,7 +39,8 @@ jobs:
               "<meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover\">",
               "<meta name=\"mobile-web-app-capable\" content=\"yes\">",
               "<meta name=\"apple-mobile-web-app-capable\" content=\"yes\">",
-              "<meta name=\"apple-mobile-web-app-status-bar-style\" content=\"black-translucent\">"
+              "<meta name=\"apple-mobile-web-app-status-bar-style\" content=\"black-translucent\">",
+              "<meta name=\"theme-color\" content=\"#000000\">"
             ].join("\n");
 
             const files = fs.readdirSync(".").filter(f => f.endsWith(".html"));
@@ -58,4 +59,4 @@ jobs:
           git config --global user.name "github-actions[bot]"
           git config --global user.email "github-actions[bot]@users.noreply.github.com"
           git add .
-          git diff --quiet && git diff --staged --quiet || (git commit -m "Auto-inject PWA fullscreen tags and manifest rules [skip ci]" && git push)
+          git diff --quiet && git diff --staged --quiet || (git commit -m "Fix PWA cold start and preserve active route on resume [skip ci]" && git push)
