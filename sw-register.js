@@ -30,7 +30,7 @@
   }
 })();
 
-// 3. Watermark Cleaner & Live Clock (Rabina Standard Time)
+// 3. Watermark Cleaner & Live Clock (Rabina Standard Time / NUL2)
 (function startLivePstClock() {
   function removeWatermarks() {
     document.querySelectorAll('a[href*="mobirise.com"], a[href*="mobiri.se"]').forEach(el => {
@@ -52,8 +52,12 @@
       hour12: true
     }) + ' PST';
 
-    // Target live clock elements across pages
-    document.querySelectorAll('.pst-live-clock, .pst-clock, #pst-clock, [data-pst-clock]').forEach(clock => {
+    // Target NUL2 alongside standard clock classes/IDs across all pages
+    const clockElements = document.querySelectorAll(
+      '.NUL2, #NUL2, .nul2, #nul2, .pst-live-clock, .pst-clock, #pst-clock, [data-pst-clock]'
+    );
+
+    clockElements.forEach(clock => {
       clock.textContent = nowPST;
     });
   }
@@ -66,12 +70,56 @@
   }
 })();
 
-// 4. Service Worker Registration
+// 4. Service Worker Registration with Precaching Progress Tracker
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', () => {
     navigator.serviceWorker.register('/sw.js').then(reg => {
       console.log('SW Registered:', reg.scope);
+      
+      // Force update check on page load
       reg.update();
+
+      // Track installation progress
+      reg.addEventListener('updatefound', () => {
+        const installingWorker = reg.installing;
+        if (!installingWorker) return;
+
+        const progressBar = document.querySelector('.cache-progress-bar, #cache-progress, [data-cache-progress]');
+        const progressContainer = document.querySelector('.cache-progress-container, #cache-progress-container');
+
+        if (progressContainer) progressContainer.style.display = 'block';
+
+        installingWorker.addEventListener('statechange', () => {
+          if (installingWorker.state === 'installing') {
+            console.log('Precaching assets for offline use...');
+            if (progressBar) progressBar.style.width = '50%';
+          } else if (installingWorker.state === 'installed') {
+            if (navigator.serviceWorker.controller) {
+              console.log('New offline content available; please refresh.');
+              if (progressBar) progressBar.style.width = '100%';
+              setTimeout(() => {
+                if (progressContainer) progressContainer.style.display = 'none';
+              }, 2000);
+            } else {
+              console.log('Content is cached for offline use.');
+              if (progressBar) progressBar.style.width = '100%';
+              setTimeout(() => {
+                if (progressContainer) progressContainer.style.display = 'none';
+              }, 2000);
+            }
+          }
+        });
+      });
     }).catch(err => console.error('SW Registration Failed:', err));
+
+    // Listen for progress messages sent from sw.js
+    navigator.serviceWorker.addEventListener('message', event => {
+      if (event.data && event.data.type === 'CACHE_PROGRESS') {
+        const progressBar = document.querySelector('.cache-progress-bar, #cache-progress, [data-cache-progress]');
+        if (progressBar && event.data.percent) {
+          progressBar.style.width = event.data.percent + '%';
+        }
+      }
+    });
   });
 }
