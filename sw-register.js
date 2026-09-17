@@ -20,13 +20,11 @@
                        window.navigator.standalone;
   if (!isStandalone) return;
 
-  function extractFilename(urlStr) {
+  function getCleanPath(urlStr) {
     try {
       const url = new URL(urlStr || window.location.href, window.location.href);
       let path = url.pathname;
-      if (path.endsWith('/')) {
-        path += 'index.html';
-      }
+      if (path.endsWith('/')) path += 'index.html';
       const page = path.substring(path.lastIndexOf('/') + 1).split('?')[0].split('#')[0];
       return page === '' ? 'index.html' : page;
     } catch (e) {
@@ -34,88 +32,35 @@
     }
   }
 
-  function isIndexRoute(pageName) {
-    return pageName === 'index.html' || pageName === '' || pageName === '/';
+  function isHome(page) {
+    return page === 'index.html' || page === '' || page === '/';
   }
 
-  function syncStateWithUrl(targetUrl) {
-    const page = extractFilename(targetUrl);
-    if (isIndexRoute(page)) {
-      localStorage.removeItem('pwa_active_route');
-    } else {
-      localStorage.setItem('pwa_active_route', page);
-    }
-  }
-
-  function enforceRouteRestore() {
-    const current = extractFilename(window.location.href);
-    const saved = localStorage.getItem('pwa_active_route');
-
-    if (isIndexRoute(current) && saved && !isIndexRoute(saved)) {
-      window.location.replace(saved);
-    }
-  }
-
-  // Intercept element clicks before Mobirise script execution
-  window.addEventListener('click', (e) => {
+  // Intercept all taps on the site to sync navigation intent immediately
+  document.addEventListener('click', (e) => {
     const anchor = e.target.closest('a') || e.target.closest('[href]');
     if (anchor) {
-      const href = anchor.getAttribute('href') || anchor.href;
-      if (href) {
-        const targetPage = extractFilename(href);
-        
-        if (isIndexRoute(targetPage)) {
-          // Clear lock state immediately
-          localStorage.removeItem('pwa_active_route');
-          
-          // Force hard browser navigation to break Mobirise script interception
-          e.preventDefault();
-          e.stopPropagation();
-          window.location.href = href;
-          return;
-        } else {
-          localStorage.setItem('pwa_active_route', targetPage);
-        }
+      const targetUrl = anchor.getAttribute('href') || anchor.href;
+      const targetPage = getCleanPath(targetUrl);
+
+      if (isHome(targetPage)) {
+        // Clear home lock immediately when Home or Logo is tapped
+        localStorage.removeItem('pwa_active_route');
+      } else {
+        localStorage.setItem('pwa_active_route', targetPage);
       }
     }
   }, true);
 
-  // Hook into History API to catch Mobirise's smooth transitions
-  const originalPushState = history.pushState;
-  history.pushState = function (...args) {
-    originalPushState.apply(this, args);
-    syncStateWithUrl(args[2]);
-  };
+  // Restore active page ONLY when opening/resuming the app directly on root index
+  const current = getCleanPath(window.location.href);
+  const saved = localStorage.getItem('pwa_active_route');
 
-  const originalReplaceState = history.replaceState;
-  history.replaceState = function (...args) {
-    originalReplaceState.apply(this, args);
-    syncStateWithUrl(args[2]);
-  };
-
-  window.addEventListener('popstate', () => {
-    syncStateWithUrl(window.location.href);
-  });
-
-  // Initial Sync & Route Restore
-  const currentFile = extractFilename(window.location.href);
-  if (!isIndexRoute(currentFile)) {
-    syncStateWithUrl(currentFile);
-  } else {
-    enforceRouteRestore();
+  if (!isHome(current)) {
+    localStorage.setItem('pwa_active_route', current);
+  } else if (saved && !isHome(saved)) {
+    window.location.replace(saved);
   }
-
-  // Handle Foreground Resume
-  document.addEventListener('visibilitychange', () => {
-    if (document.visibilityState === 'visible') {
-      enforceRouteRestore();
-    } else {
-      const activeFile = extractFilename(window.location.href);
-      if (!isIndexRoute(activeFile)) {
-        syncStateWithUrl(activeFile);
-      }
-    }
-  });
 })();
 
 // Service Worker Registration, Cache Progress, Timestamps, and Scoped Android PWA Trigger
