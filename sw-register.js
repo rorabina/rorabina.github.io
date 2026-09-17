@@ -26,7 +26,9 @@
 
   function getCleanPath(urlStr) {
     try {
-      if (!urlStr || urlStr === '#' || urlStr.startsWith('javascript:')) return getCleanPath(window.location.href);
+      if (!urlStr || urlStr === '#' || urlStr.startsWith('javascript:')) {
+        return getCleanPath(window.location.href);
+      }
       const url = new URL(urlStr, window.location.href);
       let path = url.pathname;
       if (path.endsWith('/')) path += 'index.html';
@@ -41,7 +43,7 @@
     return page === 'index.html' || page === '' || page === '/' || page.startsWith('index.html#');
   }
 
-  function getPageScrollKey(page) {
+  function getScrollKey(page) {
     return 'pwa_scroll_' + page;
   }
 
@@ -51,13 +53,13 @@
       const y = window.scrollY || window.pageYOffset || document.documentElement.scrollTop || 0;
       localStorage.setItem('pwa_active_route', current);
       if (y > 0) {
-        localStorage.setItem(getPageScrollKey(current), y);
+        localStorage.setItem(getScrollKey(current), y);
       }
     }
   }
 
   function restoreScrollForPage(page) {
-    const savedY = localStorage.getItem(getPageScrollKey(page));
+    const savedY = localStorage.getItem(getScrollKey(page));
     if (!savedY) return;
 
     const targetY = parseInt(savedY, 10);
@@ -87,19 +89,19 @@
       const targetPage = getCleanPath(targetUrl);
 
       if (isHome(targetPage) || anchor.classList.contains('navbar-brand') || anchor.closest('.navbar-brand')) {
-        // Clear active route and scroll data when tapping Home or Logo
+        // Clear active route and all saved scroll keys when tapping Home or Brand Logo
         localStorage.removeItem('pwa_active_route');
         Object.keys(localStorage).forEach(key => {
           if (key.startsWith('pwa_scroll_')) localStorage.removeItem(key);
         });
       } else {
-        // Clear destination scroll offset before navigating so new page starts clean
-        localStorage.removeItem(getPageScrollKey(targetPage));
+        // Clear target page scroll key before navigating so it opens at top (0,0)
+        localStorage.removeItem(getScrollKey(targetPage));
         saveCurrentScroll();
         localStorage.setItem('pwa_active_route', targetPage);
       }
     }
-  }, true);
+  }, false);
 
   // Track scroll position continuously for current active page
   window.addEventListener('scroll', () => {
@@ -107,7 +109,7 @@
     if (!isHome(current)) {
       const y = window.scrollY || window.pageYOffset || document.documentElement.scrollTop || 0;
       if (y > 0) {
-        localStorage.setItem(getPageScrollKey(current), y);
+        localStorage.setItem(getScrollKey(current), y);
       }
     }
   }, { passive: true });
@@ -129,7 +131,7 @@
     }
   }
 
-  // Preserve state on OS app suspend / background lifecycle
+  // Preserve state on OS app suspend / background lifecycle (without deprecated unload)
   window.addEventListener('pagehide', saveCurrentScroll);
   window.addEventListener('freeze', saveCurrentScroll);
   document.addEventListener('visibilitychange', () => {
