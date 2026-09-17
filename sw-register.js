@@ -73,94 +73,74 @@
   document.head.appendChild(style);
 })();
 
-// 4. Preserve Active Route, Hydrate State & Retain Immersive Viewport
+// 4. Retain PWA Active Route Across Android Background Resumes
 (function managePwaState() {
   const isStandalone = window.matchMedia('(display-mode: standalone)').matches || 
                        window.matchMedia('(display-mode: fullscreen)').matches || 
                        window.navigator.standalone;
   if (!isStandalone) return;
 
-  if ('scrollRestoration' in history) {
-    history.scrollRestoration = 'manual';
-  }
-
   function getCleanPath(urlStr) {
     try {
       if (!urlStr || urlStr === '#' || urlStr.startsWith('javascript:')) {
-        return getCleanPath(window.location.href);
+        return window.location.pathname;
       }
       const url = new URL(urlStr, window.location.href);
-      let path = url.pathname;
-      if (path.endsWith('/')) path += 'index.html';
-      const page = path.substring(path.lastIndexOf('/') + 1).split('?')[0].split('#')[0];
-      return page === '' ? 'index.html' : page;
+      return url.pathname;
     } catch (e) {
-      return 'index.html';
+      return window.location.pathname;
     }
   }
 
-  function getScrollKey(page) {
-    return 'pwa_scroll_' + page;
-  }
-
-  function saveCurrentScroll() {
-    const current = getCleanPath(window.location.href);
+  function saveCurrentState() {
+    const currentPath = window.location.pathname + window.location.search + window.location.hash;
     const y = window.scrollY || window.pageYOffset || document.documentElement.scrollTop || 0;
-    localStorage.setItem('pwa_last_active_page', current);
-    if (y >= 0) {
-      localStorage.setItem(getScrollKey(current), y);
-    }
+    
+    localStorage.setItem('pwa_active_path', currentPath);
+    localStorage.setItem('pwa_scroll_pos', y);
   }
 
-  function restoreScrollForPage(page) {
-    const savedY = localStorage.getItem(getScrollKey(page));
-    if (!savedY) return;
+  function restoreCurrentState() {
+    const savedPath = localStorage.getItem('pwa_active_path');
+    const savedScroll = localStorage.getItem('pwa_scroll_pos');
 
-    const targetY = parseInt(savedY, 10);
-    if (isNaN(targetY) || targetY <= 0) return;
-
-    let attempts = 0;
-    const maxAttempts = 15;
-
-    function scrollLoop() {
-      attempts++;
-      window.scrollTo({ top: targetY, left: 0, behavior: 'instant' });
-
-      const docHeight = Math.max(document.body.scrollHeight, document.documentElement.scrollHeight);
-      if (docHeight < targetY + window.innerHeight && attempts < maxAttempts) {
-        requestAnimationFrame(scrollLoop);
+    // Only redirect if app restarted on index/root while user was active on a subpage
+    if (savedPath && savedPath !== window.location.pathname + window.location.search + window.location.hash) {
+      const isCurrentRoot = window.location.pathname === '/' || window.location.pathname.endsWith('index.html');
+      if (isCurrentRoot && !sessionStorage.getItem('pwa_explicit_home')) {
+        window.location.replace(savedPath);
+        return;
       }
     }
 
-    scrollLoop();
+    if (savedScroll) {
+      const targetY = parseInt(savedScroll, 10);
+      if (!isNaN(targetY) && targetY > 0) {
+        window.scrollTo({ top: targetY, left: 0, behavior: 'instant' });
+      }
+    }
   }
 
-  window.addEventListener('scroll', () => {
-    const current = getCleanPath(window.location.href);
-    const y = window.scrollY || window.pageYOffset || document.documentElement.scrollTop || 0;
-    localStorage.setItem(getScrollKey(current), y);
-  }, { passive: true });
-
-  window.addEventListener('pagehide', saveCurrentScroll);
-  window.addEventListener('freeze', saveCurrentScroll);
+  window.addEventListener('scroll', saveCurrentState, { passive: true });
+  window.addEventListener('pagehide', saveCurrentState);
+  window.addEventListener('freeze', saveCurrentState);
+  
   document.addEventListener('visibilitychange', () => {
     if (document.visibilityState === 'hidden') {
-      saveCurrentScroll();
+      saveCurrentState();
     } else if (document.visibilityState === 'visible') {
-      const activeFile = getCleanPath(window.location.href);
-      restoreScrollForPage(activeFile);
+      restoreCurrentState();
     }
   });
 
-  const current = getCleanPath(window.location.href);
   if (document.readyState === 'complete') {
-    restoreScrollForPage(current);
+    restoreCurrentState();
   } else {
-    window.addEventListener('load', () => restoreScrollForPage(current));
+    window.addEventListener('load', restoreCurrentState);
   }
 })();
 
-// 5. Universal PST Live Clock Ticker & Watermark Cleaner
+// 5. Watermark Cleaner & Live Clock
 (function startLivePstClock() {
   function removeWatermarks() {
     document.querySelectorAll('a[href*="mobirise.com"], a[href*="mobiri.se"]').forEach(el => {
@@ -172,28 +152,9 @@
     });
   }
 
-  function updatePstClocks() {
-    removeWatermarks();
-
-    const nowPST = new Date().toLocaleString('en-US', {
-      timeZone: 'Asia/Manila',
-      dateStyle: 'medium',
-      timeStyle: 'medium',
-      hour12: true
-    }) + ' PST';
-
-    // Target class, ID, and data attributes across all custom components
-    const clockElements = document.querySelectorAll('.pst-live-clock, .pst-clock, #pst-clock, [data-pst-clock]');
-    clockElements.forEach(clock => {
-      clock.textContent = nowPST;
-    });
-  }
-
-  updatePstClocks();
-  setInterval(updatePstClocks, 1000);
-
+  removeWatermarks();
   if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', updatePstClocks);
+    document.addEventListener('DOMContentLoaded', removeWatermarks);
   }
 })();
 
