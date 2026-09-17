@@ -13,7 +13,7 @@
   document.addEventListener('DOMContentLoaded', updateTheme);
 })();
 
-// Active Page & Page-Isolated Instant Scroll Restoration for Standalone PWA Mode
+// Active Page & Instant Scroll Restoration for Standalone PWA Mode
 (function managePwaState() {
   const isStandalone = window.matchMedia('(display-mode: standalone)').matches || 
                        window.matchMedia('(display-mode: fullscreen)').matches || 
@@ -77,7 +77,6 @@
 
     function scrollLoop() {
       attempts++;
-      // Instant jump without smooth scroll animation
       window.scrollTo({ top: targetY, left: 0, behavior: 'instant' });
 
       const docHeight = Math.max(document.body.scrollHeight, document.documentElement.scrollHeight);
@@ -89,8 +88,8 @@
     scrollLoop();
   }
 
-  // Intercept taps across the app in capturing phase to override script hijacking
-  document.addEventListener('click', (e) => {
+  // Intercept touch/pointer events BEFORE Mobirise click handlers execute
+  function handleHomeNavigation(e) {
     const anchor = e.target.closest('a') || e.target.closest('[href]') || e.target.closest('.navbar-brand');
     if (!anchor) return;
 
@@ -103,24 +102,38 @@
 
     if (isBrandOrHome) {
       e.preventDefault();
-      e.stopPropagation();
+      e.stopImmediatePropagation();
       clearAllPwaState();
 
-      // Force hard jump to index.html bypasses smooth scroll blockers
       const current = getCleanPath(window.location.href);
       if (isHome(current)) {
         window.scrollTo({ top: 0, left: 0, behavior: 'instant' });
       } else {
         window.location.href = 'index.html';
       }
-    } else {
+    }
+  }
+
+  // Bind low-level input events to preempt Mobirise click hijacking
+  window.addEventListener('pointerdown', handleHomeNavigation, true);
+  window.addEventListener('touchstart', handleHomeNavigation, true);
+
+  // Standard Link Tap Tracker for Subpages
+  document.addEventListener('click', (e) => {
+    const anchor = e.target.closest('a') || e.target.closest('[href]');
+    if (!anchor) return;
+
+    const targetUrl = anchor.getAttribute('href') || anchor.href || '';
+    const targetPage = getCleanPath(targetUrl);
+
+    if (!isHome(targetPage) && !anchor.classList.contains('navbar-brand') && !anchor.closest('.navbar-brand')) {
       localStorage.removeItem(getScrollKey(targetPage));
       saveCurrentScroll();
       localStorage.setItem('pwa_active_route', targetPage);
     }
   }, true);
 
-  // Continuously record position while reading
+  // Track position continuously while reading
   window.addEventListener('scroll', () => {
     const current = getCleanPath(window.location.href);
     if (!isHome(current)) {
