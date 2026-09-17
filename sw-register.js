@@ -1,187 +1,71 @@
-// Dynamic Status Bar Theme Color
-(function initThemeColor() {
-  function updateTheme() {
-    let metaTheme = document.querySelector('meta[name="theme-color"]');
-    if (!metaTheme) {
-      metaTheme = document.createElement('meta');
-      metaTheme.name = 'theme-color';
-      document.head.appendChild(metaTheme);
-    }
-    metaTheme.setAttribute('content', '#000000');
-  }
-  updateTheme();
-  document.addEventListener('DOMContentLoaded', updateTheme);
-})();
-
-// Session-Isolated PWA Route & Scroll State Manager
+// Preserve & Restore Last Visited Page in PWA Standalone Mode
 (function managePwaState() {
-  const isStandalone = window.matchMedia('(display-mode: standalone)').matches || 
-                       window.matchMedia('(display-mode: fullscreen)').matches || 
-                       window.navigator.standalone;
+  const isStandalone = window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone;
   if (!isStandalone) return;
 
-  if ('scrollRestoration' in history) {
-    history.scrollRestoration = 'manual';
+  function isIndexPage(path) {
+    return path === '/' || path === '' || path.endsWith('/index.html') || path.endsWith('index.html');
   }
 
-  function getCleanPath(urlStr) {
-    try {
-      if (!urlStr || urlStr === '#' || urlStr.startsWith('javascript:')) {
-        return getCleanPath(window.location.href);
-      }
-      const url = new URL(urlStr, window.location.href);
-      let path = url.pathname;
-      if (path.endsWith('/')) path += 'index.html';
-      const page = path.substring(path.lastIndexOf('/') + 1).split('?')[0].split('#')[0];
-      return page === '' ? 'index.html' : page;
-    } catch (e) {
-      return 'index.html';
+  function saveCurrentPage() {
+    const currentPath = window.location.pathname;
+    if (isIndexPage(currentPath)) {
+      // Clear saved page if user explicitly navigated to index
+      localStorage.removeItem('pwa_last_page');
+    } else if (currentPath) {
+      localStorage.setItem('pwa_last_page', currentPath);
     }
   }
 
-  function isHome(page) {
-    return page === 'index.html' || page === '' || page === '/' || page.startsWith('index.html#');
+  function restoreLastPage() {
+    const currentPath = window.location.pathname;
+    const lastPath = localStorage.getItem('pwa_last_page');
+
+    // Only restore last visited page if one is saved in storage
+    if (isIndexPage(currentPath) && lastPath && !isIndexPage(lastPath)) {
+      window.location.replace(lastPath);
+    }
   }
 
-  function getScrollKey(page) {
-    return 'pwa_scroll_' + page;
-  }
-
-  function clearPwaSession() {
-    sessionStorage.removeItem('pwa_active_route');
-    Object.keys(localStorage).forEach(key => {
-      if (key.startsWith('pwa_scroll_')) localStorage.removeItem(key);
+  // Clear memory when clicking Home links or Logo
+  function attachHomeLinkListeners() {
+    const homeLinks = document.querySelectorAll('a[href="/"], a[href$="index.html"], .navbar-brand, a.nav-link[href*="index"]');
+    homeLinks.forEach(link => {
+      link.addEventListener('click', () => {
+        localStorage.removeItem('pwa_last_page');
+      });
     });
   }
 
-  function closeHamburgerMenu() {
-    const toggler = document.querySelector('.navbar-toggler');
-    const navbarCollapse = document.querySelector('.navbar-collapse');
-    
-    if (navbarCollapse && navbarCollapse.classList.contains('show')) {
-      if (toggler && typeof toggler.click === 'function') {
-        toggler.click();
-      } else {
-        navbarCollapse.classList.remove('show');
-      }
-    }
+  // 1. Immediately evaluate current route
+  saveCurrentPage();
+
+  // 2. Restore last visited page on initial load if present
+  restoreLastPage();
+
+  // 3. Attach listeners to Home buttons
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', attachHomeLinkListeners);
+  } else {
+    attachHomeLinkListeners();
   }
 
-  function saveCurrentScroll() {
-    const current = getCleanPath(window.location.href);
-    if (!isHome(current)) {
-      const y = window.scrollY || window.pageYOffset || document.documentElement.scrollTop || 0;
-      sessionStorage.setItem('pwa_active_route', current);
-      if (y > 0) {
-        localStorage.setItem(getScrollKey(current), y);
-      }
-    }
-  }
-
-  function restoreScrollForPage(page) {
-    const savedY = localStorage.getItem(getScrollKey(page));
-    if (!savedY) return;
-
-    const targetY = parseInt(savedY, 10);
-    if (isNaN(targetY) || targetY <= 0) return;
-
-    let attempts = 0;
-    const maxAttempts = 20;
-
-    function scrollLoop() {
-      attempts++;
-      window.scrollTo({ top: targetY, left: 0, behavior: 'instant' });
-
-      const docHeight = Math.max(document.body.scrollHeight, document.documentElement.scrollHeight);
-      if (docHeight < targetY + window.innerHeight && attempts < maxAttempts) {
-        requestAnimationFrame(scrollLoop);
-      }
-    }
-
-    scrollLoop();
-  }
-
-  // Session Restoration Check: Re-route ONLY if session active route exists
-  const currentPath = getCleanPath(window.location.href);
-  const activeSessionRoute = sessionStorage.getItem('pwa_active_route');
-
-  if (isHome(currentPath) && activeSessionRoute && !isHome(activeSessionRoute)) {
-    window.location.replace(activeSessionRoute);
-    return;
-  }
-
-  // Global Event Capture for Navigation, Brand Clicks & Mobirise Overrides
-  document.addEventListener('click', (e) => {
-    const anchor = e.target.closest('a') || e.target.closest('[href]');
-    if (!anchor) return;
-
-    const targetUrl = anchor.getAttribute('href') || anchor.href || '';
-    const targetPage = getCleanPath(targetUrl);
-    const isBrandOrHome = isHome(targetPage) || 
-                          anchor.classList.contains('navbar-brand') || 
-                          anchor.closest('.navbar-brand');
-
-    if (isBrandOrHome) {
-      e.preventDefault();
-      e.stopPropagation();
-      closeHamburgerMenu();
-      clearPwaSession();
-
-      const current = getCleanPath(window.location.href);
-      if (isHome(current)) {
-        window.scrollTo({ top: 0, left: 0, behavior: 'instant' });
-      } else {
-        window.location.href = 'index.html';
-      }
-    } else {
-      closeHamburgerMenu();
-      localStorage.removeItem(getScrollKey(targetPage));
-      saveCurrentScroll();
-      sessionStorage.setItem('pwa_active_route', targetPage);
-    }
-  }, true);
-
-  // Track position continuously while scrolling
-  window.addEventListener('scroll', () => {
-    const current = getCleanPath(window.location.href);
-    if (!isHome(current)) {
-      const y = window.scrollY || window.pageYOffset || document.documentElement.scrollTop || 0;
-      if (y > 0) {
-        localStorage.setItem(getScrollKey(current), y);
-      }
-    }
-  }, { passive: true });
-
-  // Restore scroll state when viewing subpage
-  if (!isHome(currentPath)) {
-    sessionStorage.setItem('pwa_active_route', currentPath);
-
-    if (document.readyState === 'complete') {
-      restoreScrollForPage(currentPath);
-    } else {
-      window.addEventListener('load', () => restoreScrollForPage(currentPath));
-      document.addEventListener('DOMContentLoaded', () => restoreScrollForPage(currentPath));
-    }
-  }
-
-  // Preserve state on OS background / suspend lifecycle
-  window.addEventListener('pagehide', saveCurrentScroll);
-  window.addEventListener('freeze', saveCurrentScroll);
+  // 4. Handle Android background-to-foreground resume events
   document.addEventListener('visibilitychange', () => {
-    if (document.visibilityState === 'hidden') {
-      saveCurrentScroll();
-    } else if (document.visibilityState === 'visible') {
-      const activeFile = getCleanPath(window.location.href);
-      if (!isHome(activeFile)) {
-        restoreScrollForPage(activeFile);
-      }
+    if (document.visibilityState === 'visible') {
+      restoreLastPage();
+    } else {
+      saveCurrentPage();
     }
   });
+
+  window.addEventListener('pageshow', restoreLastPage);
 })();
 
-// Service Worker Registration & Cache Progress Monitor
+// Service Worker Registration, Cache Progress, Timestamps, and Scoped Android PWA Trigger
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', () => {
+    // 1. Floating Cache Progress Bar UI
     const barContainer = document.createElement('div');
     barContainer.id = 'pwa-cache-status';
     barContainer.innerHTML = `
@@ -237,11 +121,13 @@ if ('serviceWorker' in navigator) {
       document.body.appendChild(barContainer);
     }
 
+    // 2. Register Service Worker
     navigator.serviceWorker.register('/sw.js').then(reg => {
       console.log('SW Registered:', reg.scope);
       reg.update();
     }).catch(err => console.error('SW Registration Failed:', err));
 
+    // 3. Monitor Cache Progress
     let checkInterval = setInterval(async () => {
       try {
         const cacheKeys = await caches.keys();
@@ -291,7 +177,7 @@ if ('serviceWorker' in navigator) {
   });
 }
 
-// Scoped Android Install Button Handling
+// 4. Scoped Android Install Button Handling for app.html
 let deferredPrompt;
 window.addEventListener('beforeinstallprompt', (e) => {
   e.preventDefault();
@@ -321,7 +207,7 @@ function initAndroidButton() {
   }
 }
 
-// PST Clock Ticker & Watermark Cleaner
+// 5. Client-side Live PST Clock Ticker & Container Space Cleaner
 function startLivePstClock() {
   document.querySelectorAll('a[href*="mobirise.com"], a[href*="mobiri.se"]').forEach(el => {
     const parent = el.parentElement;
