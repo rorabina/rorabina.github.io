@@ -88,35 +88,33 @@
     scrollLoop();
   }
 
-  // Intercept touch/pointer events BEFORE Mobirise click handlers execute
-  function handleHomeNavigation(e) {
-    const anchor = e.target.closest('a') || e.target.closest('[href]') || e.target.closest('.navbar-brand');
-    if (!anchor) return;
+  // Sanitize Brand / Home links by removing external Mobirise event listeners
+  function neutralizeMobiriseHomeLinks() {
+    const homeElements = document.querySelectorAll('.navbar-brand, a[href*="index.html"], a[href="#top"], a[href="./"], a[href="/"]');
+    homeElements.forEach(el => {
+      const clone = el.cloneNode(true);
+      el.parentNode.replaceChild(clone, el);
 
-    const targetUrl = anchor.getAttribute('href') || anchor.href || '';
-    const targetPage = getCleanPath(targetUrl);
-    const isBrandOrHome = isHome(targetPage) || 
-                          anchor.classList.contains('navbar-brand') || 
-                          anchor.closest('.navbar-brand') ||
-                          targetUrl.includes('index.html');
+      clone.addEventListener('click', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        clearAllPwaState();
 
-    if (isBrandOrHome) {
-      e.preventDefault();
-      e.stopImmediatePropagation();
-      clearAllPwaState();
-
-      const current = getCleanPath(window.location.href);
-      if (isHome(current)) {
-        window.scrollTo({ top: 0, left: 0, behavior: 'instant' });
-      } else {
-        window.location.href = 'index.html';
-      }
-    }
+        const current = getCleanPath(window.location.href);
+        if (isHome(current)) {
+          window.scrollTo({ top: 0, left: 0, behavior: 'instant' });
+        } else {
+          window.location.href = 'index.html';
+        }
+      }, true);
+    });
   }
 
-  // Bind low-level input events to preempt Mobirise click hijacking
-  window.addEventListener('pointerdown', handleHomeNavigation, true);
-  window.addEventListener('touchstart', handleHomeNavigation, true);
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', neutralizeMobiriseHomeLinks);
+  } else {
+    neutralizeMobiriseHomeLinks();
+  }
 
   // Standard Link Tap Tracker for Subpages
   document.addEventListener('click', (e) => {
@@ -126,7 +124,7 @@
     const targetUrl = anchor.getAttribute('href') || anchor.href || '';
     const targetPage = getCleanPath(targetUrl);
 
-    if (!isHome(targetPage) && !anchor.classList.contains('navbar-brand') && !anchor.closest('.navbar-brand')) {
+    if (!isHome(targetPage)) {
       localStorage.removeItem(getScrollKey(targetPage));
       saveCurrentScroll();
       localStorage.setItem('pwa_active_route', targetPage);
@@ -144,13 +142,10 @@
     }
   }, { passive: true });
 
-  // Handle Initial Route & Page Position Restoration
+  // Handle Initial Route & Page Position Restoration (No Page Flash)
   const current = getCleanPath(window.location.href);
-  const savedRoute = localStorage.getItem('pwa_active_route');
 
-  if (isHome(current) && savedRoute && !isHome(savedRoute)) {
-    window.location.replace(savedRoute);
-  } else if (!isHome(current)) {
+  if (!isHome(current)) {
     localStorage.setItem('pwa_active_route', current);
 
     if (document.readyState === 'complete') {
