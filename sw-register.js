@@ -13,12 +13,17 @@
   document.addEventListener('DOMContentLoaded', updateTheme);
 })();
 
-// Preserve & Restore Active Page State + Scroll Position in Standalone PWA Mode
+// Preserve & Restore Active Page State + Precision Scroll Position in Standalone PWA Mode
 (function managePwaState() {
   const isStandalone = window.matchMedia('(display-mode: standalone)').matches || 
                        window.matchMedia('(display-mode: fullscreen)').matches || 
                        window.navigator.standalone;
   if (!isStandalone) return;
+
+  // Prevent browser from automatically jumping to top (0,0) on navigation/restore
+  if ('scrollRestoration' in history) {
+    history.scrollRestoration = 'manual';
+  }
 
   function getCleanPath(urlStr) {
     try {
@@ -39,19 +44,40 @@
   function saveScrollPosition() {
     const current = getCleanPath(window.location.href);
     if (!isHome(current)) {
-      localStorage.setItem('pwa_active_scroll', window.scrollY || window.pageYOffset || 0);
+      const y = window.scrollY || window.pageYOffset || document.documentElement.scrollTop || 0;
+      if (y > 0) {
+        localStorage.setItem('pwa_active_scroll', y);
+      }
     }
   }
 
   function restoreScrollPosition() {
     const savedScroll = localStorage.getItem('pwa_active_scroll');
-    if (savedScroll !== null) {
-      const y = parseInt(savedScroll, 10);
-      // Attempt immediate scroll + delayed scroll to account for image/layout load
-      window.scrollTo(0, y);
-      setTimeout(() => window.scrollTo(0, y), 100);
-      setTimeout(() => window.scrollTo(0, y), 300);
+    if (savedScroll === null) return;
+    
+    const targetY = parseInt(savedScroll, 10);
+    if (isNaN(targetY) || targetY <= 0) return;
+
+    let attempts = 0;
+    const maxAttempts = 20;
+
+    function applyScroll() {
+      attempts++;
+      const currentHeight = Math.max(
+        document.body.scrollHeight, 
+        document.documentElement.scrollHeight
+      );
+
+      // Force scroll to target position
+      window.scrollTo(0, targetY);
+
+      // Keep re-applying scroll position until page layout fully expands or max attempts reached
+      if (currentHeight < targetY + window.innerHeight && attempts < maxAttempts) {
+        setTimeout(applyScroll, 100);
+      }
     }
+
+    applyScroll();
   }
 
   // Intercept taps across the app to update state immediately
@@ -72,11 +98,14 @@
     }
   }, true);
 
-  // Track scroll changes continuously
+  // Track scroll position continuously during active reading
   window.addEventListener('scroll', () => {
     const current = getCleanPath(window.location.href);
     if (!isHome(current)) {
-      localStorage.setItem('pwa_active_scroll', window.scrollY || window.pageYOffset || 0);
+      const y = window.scrollY || window.pageYOffset || document.documentElement.scrollTop || 0;
+      if (y > 0) {
+        localStorage.setItem('pwa_active_scroll', y);
+      }
     }
   }, { passive: true });
 
@@ -90,12 +119,18 @@
       restoreScrollPosition();
     } else {
       window.addEventListener('load', restoreScrollPosition);
+      document.addEventListener('DOMContentLoaded', restoreScrollPosition);
     }
   } else if (savedRoute && !isHome(savedRoute)) {
     window.location.replace(savedRoute);
   }
 
-  // Save scroll position when minimizing or backgrounding the PWA
+  // Deep OS suspend/background lifecycle listeners to save exact scroll position
+  window.addEventListener('pagehide', saveScrollPosition);
+  window.addEventListener('freeze', saveScrollPosition);
+  window.addEventListener('beforeunload', saveScrollPosition);
+
+  // Handle Foreground Resume & Scroll Re-engagement
   document.addEventListener('visibilitychange', () => {
     if (document.visibilityState === 'hidden') {
       saveScrollPosition();
