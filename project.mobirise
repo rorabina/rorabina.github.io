@@ -120,7 +120,7 @@
     "siteUrl": "https://rorabina.github.io",
     "pwa-switcher": false,
     "screenshot": "screenshot.png",
-    "publishChangesOnly": false,
+    "publishChangesOnly": true,
     "publishEditFolder": false,
     "robotsText": "User-agent: *\r\nDisallow: /cgi-bin\r\n",
     "cookiesAlert": false,
