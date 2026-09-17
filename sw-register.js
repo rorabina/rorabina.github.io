@@ -20,11 +20,13 @@
                        window.navigator.standalone;
   if (!isStandalone) return;
 
-  function getCurrentFilename(urlStr) {
-    const target = urlStr || window.location.href;
+  function normalizeRoute(urlStr) {
     try {
-      const url = new URL(target, window.location.href);
-      const path = url.pathname;
+      const url = new URL(urlStr || window.location.href, window.location.href);
+      let path = url.pathname;
+      if (path.endsWith('/')) {
+        path += 'index.html';
+      }
       const page = path.substring(path.lastIndexOf('/') + 1).split('?')[0].split('#')[0];
       return page === '' ? 'index.html' : page;
     } catch (e) {
@@ -32,56 +34,60 @@
     }
   }
 
-  function isIndex(page) {
-    return page === 'index.html' || page === '' || page === '/' || page.endsWith('index.html');
+  function isIndexRoute(page) {
+    return page === 'index.html' || page === '' || page === '/';
   }
 
-  function saveCurrentRoute(page) {
-    if (!isIndex(page)) {
-      localStorage.setItem('pwa_active_route', page);
-    } else {
+  function saveRoute(page) {
+    if (isIndexRoute(page)) {
       localStorage.removeItem('pwa_active_route');
+    } else {
+      localStorage.setItem('pwa_active_route', page);
     }
   }
 
   function restoreRoute() {
-    const current = getCurrentFilename();
+    const current = normalizeRoute(window.location.href);
     const saved = localStorage.getItem('pwa_active_route');
 
-    if (isIndex(current) && saved && !isIndex(saved)) {
+    if (isIndexRoute(current) && saved && !isIndexRoute(saved)) {
       window.location.replace(saved);
     }
   }
 
-  // Event Capture Listener: Handles home/logo link clicks to clear stored route
-  document.addEventListener('click', (e) => {
-    const anchor = e.target.closest('a');
-    if (anchor && anchor.href) {
-      const targetPage = getCurrentFilename(anchor.href);
-      if (isIndex(targetPage)) {
-        localStorage.removeItem('pwa_active_route');
-      } else {
-        localStorage.setItem('pwa_active_route', targetPage);
+  // Intercept all navigation clicks globally before Mobirise script execution
+  window.addEventListener('click', (e) => {
+    const anchor = e.target.closest('a') || e.target.closest('[href]');
+    if (anchor) {
+      const href = anchor.getAttribute('href') || anchor.href;
+      if (href) {
+        const targetPage = normalizeRoute(href);
+        if (isIndexRoute(targetPage)) {
+          // Immediately clear state on home / logo tap
+          localStorage.removeItem('pwa_active_route');
+        } else {
+          localStorage.setItem('pwa_active_route', targetPage);
+        }
       }
     }
   }, true);
 
-  // Initial Route Sync
-  const currentFile = getCurrentFilename();
-  if (!isIndex(currentFile)) {
-    saveCurrentRoute(currentFile);
+  // Initial Sync
+  const currentFile = normalizeRoute(window.location.href);
+  if (!isIndexRoute(currentFile)) {
+    saveRoute(currentFile);
   } else {
     restoreRoute();
   }
 
-  // Handle App Foreground Resume
+  // Handle Foreground Resume
   document.addEventListener('visibilitychange', () => {
     if (document.visibilityState === 'visible') {
       restoreRoute();
     } else {
-      const activeFile = getCurrentFilename();
-      if (!isIndex(activeFile)) {
-        saveCurrentRoute(activeFile);
+      const activeFile = normalizeRoute(window.location.href);
+      if (!isIndexRoute(activeFile)) {
+        saveRoute(activeFile);
       }
     }
   });
