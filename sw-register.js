@@ -1,4 +1,4 @@
-// 1. Dynamic Status Bar Theme Color & Cold-Start Fullscreen Initialization
+// 1. Dynamic Status Bar Theme Color & Edge-to-Edge Meta Setup
 (function initThemeAndLayout() {
   function applyTheme() {
     let metaTheme = document.querySelector('meta[name="theme-color"]');
@@ -12,14 +12,13 @@
 
   applyTheme();
 
-  // Force layout engine viewport pass for Android cold start
   const isStandalone = window.matchMedia('(display-mode: standalone)').matches || 
                        window.matchMedia('(display-mode: fullscreen)').matches || 
                        window.navigator.standalone;
                        
   if (isStandalone) {
     document.documentElement.style.setProperty('height', '100vh');
-    document.documentElement.style.setProperty('overflow', 'x-hidden');
+    document.documentElement.style.setProperty('overflow-x', 'hidden');
   }
 
   document.addEventListener('DOMContentLoaded', applyTheme);
@@ -73,7 +72,7 @@
   document.head.appendChild(style);
 })();
 
-// 4. Preserve & Restore Active Page & Scroll State in Standalone PWA Mode
+// 4. Preserve Active Route & Prevent Reset to Index on Resume
 (function managePwaState() {
   const isStandalone = window.matchMedia('(display-mode: standalone)').matches || 
                        window.matchMedia('(display-mode: fullscreen)').matches || 
@@ -105,41 +104,16 @@
     return clean === 'index.html' || clean === '' || clean === '/' || clean === 'index';
   }
 
-  function isHomeLink(anchor) {
-    if (!anchor) return false;
-    const href = (anchor.getAttribute('href') || anchor.href || '').toLowerCase();
-    const cleanPage = getCleanPath(href);
-    
-    return isHome(cleanPage) || 
-           anchor.classList.contains('navbar-brand') || 
-           !!anchor.closest('.navbar-brand') ||
-           href === '/' || 
-           href.endsWith('index.html');
-  }
-
   function getScrollKey(page) {
     return 'pwa_scroll_' + page;
   }
 
-  function closeHamburgerMenu() {
-    const navbarCollapse = document.querySelector('.navbar-collapse');
-    if (navbarCollapse && navbarCollapse.classList.contains('show')) {
-      navbarCollapse.classList.remove('show');
-    }
-  }
-
   function saveCurrentScroll() {
-    if (sessionStorage.getItem('pwa_navigating_home') === 'true') {
-      return;
-    }
-
     const current = getCleanPath(window.location.href);
-    if (!isHome(current)) {
-      const y = window.scrollY || window.pageYOffset || document.documentElement.scrollTop || 0;
-      localStorage.setItem('pwa_active_route', current);
-      if (y > 0) {
-        localStorage.setItem(getScrollKey(current), y);
-      }
+    const y = window.scrollY || window.pageYOffset || document.documentElement.scrollTop || 0;
+    localStorage.setItem('pwa_last_active_page', current);
+    if (y >= 0) {
+      localStorage.setItem(getScrollKey(current), y);
     }
   }
 
@@ -151,7 +125,7 @@
     if (isNaN(targetY) || targetY <= 0) return;
 
     let attempts = 0;
-    const maxAttempts = 20;
+    const maxAttempts = 15;
 
     function scrollLoop() {
       attempts++;
@@ -166,70 +140,14 @@
     scrollLoop();
   }
 
-  document.addEventListener('click', (e) => {
-    const anchor = e.target.closest('a') || e.target.closest('[href]');
-    if (!anchor) return;
-
-    if (anchor.classList.contains('dropdown-toggle') || 
-        anchor.getAttribute('data-toggle') === 'dropdown' || 
-        anchor.getAttribute('data-bs-toggle') === 'dropdown') {
-      return;
-    }
-
-    if (isHomeLink(anchor)) {
-      closeHamburgerMenu();
-
-      sessionStorage.setItem('pwa_navigating_home', 'true');
-      localStorage.removeItem('pwa_active_route');
-
-      const current = getCleanPath(window.location.href);
-      if (isHome(current)) {
-        e.preventDefault();
-        window.scrollTo({ top: 0, left: 0, behavior: 'instant' });
-      }
-      return;
-    }
-
-    const targetUrl = anchor.getAttribute('href') || anchor.href || '';
-    if (targetUrl === '#' || targetUrl.startsWith('javascript:')) return;
-
-    const targetPage = getCleanPath(targetUrl);
-    closeHamburgerMenu();
-
-    sessionStorage.removeItem('pwa_navigating_home');
-    localStorage.removeItem(getScrollKey(targetPage));
-    saveCurrentScroll();
-    localStorage.setItem('pwa_active_route', targetPage);
-  }, true);
-
+  // Record scroll positions passively
   window.addEventListener('scroll', () => {
     const current = getCleanPath(window.location.href);
-    if (!isHome(current)) {
-      const y = window.scrollY || window.pageYOffset || document.documentElement.scrollTop || 0;
-      if (y > 0) {
-        localStorage.setItem(getScrollKey(current), y);
-      }
-    }
+    const y = window.scrollY || window.pageYOffset || document.documentElement.scrollTop || 0;
+    localStorage.setItem(getScrollKey(current), y);
   }, { passive: true });
 
-  const current = getCleanPath(window.location.href);
-  const isExplicitHomeNav = sessionStorage.getItem('pwa_navigating_home') === 'true';
-
-  if (isExplicitHomeNav || isHome(current)) {
-    sessionStorage.removeItem('pwa_navigating_home');
-    localStorage.removeItem('pwa_active_route');
-  } else {
-    const saved = localStorage.getItem('pwa_active_route');
-    localStorage.setItem('pwa_active_route', current);
-
-    if (document.readyState === 'complete') {
-      restoreScrollForPage(current);
-    } else {
-      window.addEventListener('load', () => restoreScrollForPage(current));
-      document.addEventListener('DOMContentLoaded', () => restoreScrollForPage(current));
-    }
-  }
-
+  // Save current state on hide/freeze
   window.addEventListener('pagehide', saveCurrentScroll);
   window.addEventListener('freeze', saveCurrentScroll);
   document.addEventListener('visibilitychange', () => {
@@ -237,162 +155,30 @@
       saveCurrentScroll();
     } else if (document.visibilityState === 'visible') {
       const activeFile = getCleanPath(window.location.href);
-      if (!isHome(activeFile)) {
-        restoreScrollForPage(activeFile);
-      }
+      restoreScrollForPage(activeFile);
     }
   });
+
+  // Restore scroll position on initial load without forcing redirects
+  const current = getCleanPath(window.location.href);
+  if (document.readyState === 'complete') {
+    restoreScrollForPage(current);
+  } else {
+    window.addEventListener('load', () => restoreScrollForPage(current));
+  }
 })();
 
-// 5. Service Worker Registration & Restored Cache Progress Monitor
+// 5. Service Worker Registration & Cache Progress Monitor
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', () => {
-    const renderProgressWidget = () => {
-      if (document.getElementById('pwa-cache-status')) return;
-
-      const barContainer = document.createElement('div');
-      barContainer.id = 'pwa-cache-status';
-      barContainer.innerHTML = `
-        <style>
-          #pwa-cache-status {
-            position: fixed;
-            bottom: 20px;
-            right: 20px;
-            z-index: 99999;
-            background: rgba(18, 18, 18, 0.92);
-            color: #ffffff;
-            padding: 12px 16px;
-            border-radius: 12px;
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-            font-size: 13px;
-            box-shadow: 0 8px 24px rgba(0,0,0,0.3);
-            backdrop-filter: blur(8px);
-            display: flex;
-            flex-direction: column;
-            gap: 6px;
-            min-width: 220px;
-            transition: opacity 0.4s ease, transform 0.4s ease;
-          }
-          .pwa-progress-track {
-            width: 100%;
-            height: 6px;
-            background: rgba(255, 255, 255, 0.2);
-            border-radius: 3px;
-            overflow: hidden;
-          }
-          .pwa-progress-fill {
-            height: 100%;
-            width: 0%;
-            background: #3b82f6;
-            transition: width 0.3s ease-out;
-          }
-          .pwa-text-row {
-            display: flex;
-            justify-content: space-between;
-            font-weight: 500;
-          }
-        </style>
-        <div class="pwa-text-row">
-          <span id="pwa-status-label">Saving for offline use...</span>
-          <span id="pwa-status-pct">0%</span>
-        </div>
-        <div class="pwa-progress-track">
-          <div id="pwa-progress-fill" class="pwa-progress-fill"></div>
-        </div>
-      `;
-
-      if (navigator.onLine && !localStorage.getItem('pwa_fully_cached')) {
-        document.body.appendChild(barContainer);
-      }
-    };
-
-    renderProgressWidget();
-
     navigator.serviceWorker.register('/sw.js').then(reg => {
       console.log('SW Registered:', reg.scope);
       reg.update();
     }).catch(err => console.error('SW Registration Failed:', err));
-
-    let checkInterval = setInterval(async () => {
-      try {
-        const cacheKeys = await caches.keys();
-        const precacheName = cacheKeys.find(key => key.includes('workbox-precache') || key.includes('ror-cache'));
-
-        if (precacheName) {
-          const cache = await caches.open(precacheName);
-          const cachedRequests = await cache.keys();
-          const currentCount = cachedRequests.length;
-
-          const estimatedTotal = Math.max(currentCount, 80);
-          let percent = Math.min(Math.round((currentCount / estimatedTotal) * 100), 99);
-
-          const reg = await navigator.serviceWorker.getRegistration();
-          const isInstalling = reg && (reg.installing || reg.waiting);
-
-          if (!isInstalling && currentCount > 30) {
-            percent = 100;
-          }
-
-          const fill = document.getElementById('pwa-progress-fill');
-          const pctText = document.getElementById('pwa-status-pct');
-          const labelText = document.getElementById('pwa-status-label');
-
-          if (fill) fill.style.width = percent + '%';
-          if (pctText) pctText.innerText = percent + '%';
-
-          if (percent >= 100) {
-            clearInterval(checkInterval);
-            if (labelText) labelText.innerText = 'Ready for offline use!';
-            localStorage.setItem('pwa_fully_cached', 'true');
-
-            setTimeout(() => {
-              const widget = document.getElementById('pwa-cache-status');
-              if (widget) {
-                widget.style.opacity = '0';
-                widget.style.transform = 'translateY(10px)';
-                setTimeout(() => widget.remove(), 400);
-              }
-            }, 2000);
-          }
-        }
-      } catch (err) {
-        console.error('Cache progress error:', err);
-      }
-    }, 400);
   });
 }
 
-// 6. Scoped Android Install Button Handling
-let deferredPrompt;
-window.addEventListener('beforeinstallprompt', (e) => {
-  e.preventDefault();
-  deferredPrompt = e;
-});
-
-function initAndroidButton() {
-  if (window.location.pathname.includes('app.html')) {
-    const androidBtns = document.querySelectorAll('a[href*="android"], .btn-android, #android-install-btn, .btn');
-    androidBtns.forEach(btn => {
-      if (btn.textContent.includes('Android')) {
-        btn.style.cursor = 'pointer';
-        btn.addEventListener('click', async (evt) => {
-          evt.preventDefault();
-          evt.stopPropagation();
-          if (deferredPrompt) {
-            deferredPrompt.prompt();
-            const { outcome } = await deferredPrompt.userChoice;
-            console.log(`PWA Install Choice: ${outcome}`);
-            deferredPrompt = null;
-          } else {
-            alert('PWA install prompt is ready or app is already installed!');
-          }
-        });
-      }
-    });
-  }
-}
-
-// 7. PST Clock Ticker & Watermark Cleaner
+// 6. PST Clock Ticker & Watermark Cleaner
 function startLivePstClock() {
   document.querySelectorAll('a[href*="mobirise.com"], a[href*="mobiri.se"]').forEach(el => {
     const parent = el.parentElement;
@@ -420,11 +206,7 @@ function startLivePstClock() {
 }
 
 if (document.readyState === 'loading') {
-  document.addEventListener('DOMContentLoaded', () => {
-    initAndroidButton();
-    startLivePstClock();
-  });
+  document.addEventListener('DOMContentLoaded', startLivePstClock);
 } else {
-  initAndroidButton();
   startLivePstClock();
 }
