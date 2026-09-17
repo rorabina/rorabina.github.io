@@ -1,4 +1,4 @@
-// Dynamic Status Bar Theme Color
+// 1. Dynamic Status Bar Theme Color
 (function initThemeColor() {
   function updateTheme() {
     let metaTheme = document.querySelector('meta[name="theme-color"]');
@@ -13,7 +13,23 @@
   document.addEventListener('DOMContentLoaded', updateTheme);
 })();
 
-// Preserve & Restore Active Page & Scroll State in Standalone PWA Mode
+// 2. Disable Mobirise Animations for Instant Jumps
+(function disableMobiriseAnimations() {
+  const style = document.createElement('style');
+  style.innerHTML = `
+    *, *::before, *::after {
+      animation: none !important;
+      transition: none !important;
+      scroll-behavior: auto !important;
+    }
+    .animated {
+      animation: none !important;
+    }
+  `;
+  document.head.appendChild(style);
+})();
+
+// 3. Preserve & Restore Active Page & Scroll State in Standalone PWA Mode
 (function managePwaState() {
   const isStandalone = window.matchMedia('(display-mode: standalone)').matches || 
                        window.matchMedia('(display-mode: fullscreen)').matches || 
@@ -50,15 +66,9 @@
   }
 
   function closeHamburgerMenu() {
-    const toggler = document.querySelector('.navbar-toggler');
     const navbarCollapse = document.querySelector('.navbar-collapse');
-    
     if (navbarCollapse && navbarCollapse.classList.contains('show')) {
-      if (toggler && typeof toggler.click === 'function') {
-        toggler.click();
-      } else {
-        navbarCollapse.classList.remove('show');
-      }
+      navbarCollapse.classList.remove('show');
     }
   }
 
@@ -96,12 +106,21 @@
     scrollLoop();
   }
 
-  // Intercept all clicks on the site to handle navigation, state clearing, and menu closure
+  // Handle standard link clicks without hijacking Bootstrap dropdowns or sub-menus
   document.addEventListener('click', (e) => {
     const anchor = e.target.closest('a') || e.target.closest('[href]');
     if (!anchor) return;
 
+    // Allow dropdown toggles to function normally
+    if (anchor.classList.contains('dropdown-toggle') || anchor.getAttribute('data-toggle') === 'dropdown' || anchor.getAttribute('data-bs-toggle') === 'dropdown') {
+      return;
+    }
+
     const targetUrl = anchor.getAttribute('href') || anchor.href || '';
+    
+    // Ignore pure anchor toggles on the same page
+    if (targetUrl === '#' || targetUrl.startsWith('javascript:')) return;
+
     const targetPage = getCleanPath(targetUrl);
     const isBrandOrHome = isHome(targetPage) || 
                           anchor.classList.contains('navbar-brand') || 
@@ -110,21 +129,19 @@
     closeHamburgerMenu();
 
     if (isBrandOrHome) {
-      // Clear route state so app opens fresh on home page
+      // Clear route memory so PWA re-opens at index
       localStorage.removeItem('pwa_active_route');
 
       const current = getCleanPath(window.location.href);
       if (isHome(current)) {
         window.scrollTo({ top: 0, left: 0, behavior: 'instant' });
-      } else {
-        window.location.href = 'index.html';
       }
     } else {
       localStorage.removeItem(getScrollKey(targetPage));
       saveCurrentScroll();
       localStorage.setItem('pwa_active_route', targetPage);
     }
-  }, true);
+  });
 
   // Track position continuously while reading subpages
   window.addEventListener('scroll', () => {
@@ -137,7 +154,7 @@
     }
   }, { passive: true });
 
-  // Evaluate routing and restore state when opening/resuming app
+  // Evaluate routing and restore state on startup
   const current = getCleanPath(window.location.href);
   const saved = localStorage.getItem('pwa_active_route');
 
@@ -154,7 +171,7 @@
     window.location.replace(saved);
   }
 
-  // Preserve state on OS background / suspend lifecycle
+  // Preserve state on app background/suspend
   window.addEventListener('pagehide', saveCurrentScroll);
   window.addEventListener('freeze', saveCurrentScroll);
   document.addEventListener('visibilitychange', () => {
@@ -169,7 +186,7 @@
   });
 })();
 
-// Service Worker Registration & Cache Progress Monitor
+// 4. Service Worker Registration & Cache Progress Monitor
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', () => {
     const barContainer = document.createElement('div');
@@ -281,7 +298,7 @@ if ('serviceWorker' in navigator) {
   });
 }
 
-// Scoped Android Install Button Handling for app.html
+// 5. Scoped Android Install Button Handling
 let deferredPrompt;
 window.addEventListener('beforeinstallprompt', (e) => {
   e.preventDefault();
@@ -311,7 +328,7 @@ function initAndroidButton() {
   }
 }
 
-// Client-side Live PST Clock Ticker & Watermark Cleaner
+// 6. PST Clock Ticker & Watermark Cleaner
 function startLivePstClock() {
   document.querySelectorAll('a[href*="mobirise.com"], a[href*="mobiri.se"]').forEach(el => {
     const parent = el.parentElement;
