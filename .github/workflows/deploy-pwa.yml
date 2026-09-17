@@ -4,45 +4,49 @@ on:
   push:
     branches:
       - main
-    paths-ignore:
-      - '**.md'
-
-permissions:
-  contents: write
-  pages: write
-  id-token: write
-
-concurrency:
-  group: 'pages'
-  cancel-in-progress: true
 
 jobs:
-  build-and-deploy:
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
+  deploy:
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
 
     steps:
-      - name: Checkout Code
+      - name: Checkout Repository
         uses: actions/checkout@v4
 
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: '20'
+      - name: Update Last Updated Timestamp & Inject Standard Meta Tags
+        run: |
+          node -e '
+            const fs = require("fs");
 
-      - name: Install Workbox Build
-        run: npm install workbox-build
+            const nowPST = new Date().toLocaleString("en-US", {
+              timeZone: "Asia/Manila",
+              dateStyle: "medium",
+              timeStyle: "medium",
+              hour12: true
+            }) + " PST";
 
-      - name: Run PWA & HTML Build Script
-        run: node build-sw.js
+            const tags = [
+              "<meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\">",
+              "<meta name=\"theme-color\" content=\"#000000\">"
+            ].join("\n");
 
-      - name: Upload GitHub Pages Artifact
-        uses: actions/upload-pages-artifact@v3
-        with:
-          path: './'
+            const files = fs.readdirSync(".").filter(f => f.endsWith(".html"));
+            files.forEach(file => {
+              let content = fs.readFileSync(file, "utf8");
 
-      - name: Deploy to GitHub Pages
-        id: deployment
-        uses: actions/deploy-pages@v4
+              // Replace static "Site Last Updated:" timestamp string
+              content = content.replace(/Site Last Updated:\s*<br>\s*[^<]+/gi, "Site Last Updated:<br>" + nowPST);
+
+              fs.writeFileSync(file, content);
+              console.log("Updated build timestamp in " + file);
+            });
+          '
+
+      - name: Commit and Push Processed Files
+        run: |
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "github-actions[bot]@users.noreply.github.com"
+          git add .
+          git diff --quiet && git diff --staged --quiet || (git commit -m "Build site assets and update timestamp [skip ci]" && git push)
