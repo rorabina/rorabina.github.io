@@ -1,219 +1,71 @@
-// 1. Dynamic Status Bar Theme Color
-(function initThemeColor() {
-  function updateTheme() {
-    let metaTheme = document.querySelector('meta[name="theme-color"]');
-    if (!metaTheme) {
-      metaTheme = document.createElement('meta');
-      metaTheme.name = 'theme-color';
-      document.head.appendChild(metaTheme);
-    }
-    metaTheme.setAttribute('content', '#000000');
-  }
-  updateTheme();
-  document.addEventListener('DOMContentLoaded', updateTheme);
-})();
-
-// 2. Kill Mobirise Smooth Scroll & Animations for Instant Link Jumps
-(function killMobiriseAnimations() {
-  const style = document.createElement('style');
-  style.id = 'pwa-no-animations';
-  style.innerHTML = `
-    html, body {
-      scroll-behavior: auto !important;
-    }
-    *, *::before, *::after {
-      animation: none !important;
-      transition: none !important;
-    }
-  `;
-  document.head.appendChild(style);
-})();
-
-// 3. Preserve & Restore Active Page & Scroll State in Standalone PWA Mode
+// Preserve & Restore Last Visited Page in PWA Standalone Mode
 (function managePwaState() {
-  const isStandalone = window.matchMedia('(display-mode: standalone)').matches || 
-                       window.matchMedia('(display-mode: fullscreen)').matches || 
-                       window.navigator.standalone;
+  const isStandalone = window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone;
   if (!isStandalone) return;
 
-  if ('scrollRestoration' in history) {
-    history.scrollRestoration = 'manual';
+  function isIndexPage(path) {
+    return path === '/' || path === '' || path.endsWith('/index.html') || path.endsWith('index.html');
   }
 
-  function getCleanPath(urlStr) {
-    try {
-      if (!urlStr || urlStr === '#' || urlStr.startsWith('javascript:')) {
-        return getCleanPath(window.location.href);
-      }
-      const url = new URL(urlStr, window.location.href);
-      let path = url.pathname;
-      if (path.endsWith('/')) path += 'index.html';
-      const page = path.substring(path.lastIndexOf('/') + 1).split('?')[0].split('#')[0];
-      return page === '' ? 'index.html' : page;
-    } catch (e) {
-      return 'index.html';
+  function saveCurrentPage() {
+    const currentPath = window.location.pathname;
+    if (isIndexPage(currentPath)) {
+      // Clear saved page if user explicitly navigated to index
+      localStorage.removeItem('pwa_last_page');
+    } else if (currentPath) {
+      localStorage.setItem('pwa_last_page', currentPath);
     }
   }
 
-  function isHome(page) {
-    if (!page) return true;
-    const clean = page.toLowerCase().split('?')[0].split('#')[0];
-    return clean === 'index.html' || clean === '' || clean === '/' || clean === 'index';
-  }
+  function restoreLastPage() {
+    const currentPath = window.location.pathname;
+    const lastPath = localStorage.getItem('pwa_last_page');
 
-  function isHomeLink(anchor) {
-    if (!anchor) return false;
-    const href = (anchor.getAttribute('href') || anchor.href || '').toLowerCase();
-    const cleanPage = getCleanPath(href);
-    
-    return isHome(cleanPage) || 
-           anchor.classList.contains('navbar-brand') || 
-           !!anchor.closest('.navbar-brand') ||
-           href === '/' || 
-           href.endsWith('index.html');
-  }
-
-  function getScrollKey(page) {
-    return 'pwa_scroll_' + page;
-  }
-
-  function closeHamburgerMenu() {
-    const navbarCollapse = document.querySelector('.navbar-collapse');
-    if (navbarCollapse && navbarCollapse.classList.contains('show')) {
-      navbarCollapse.classList.remove('show');
+    // Only restore last visited page if one is saved in storage
+    if (isIndexPage(currentPath) && lastPath && !isIndexPage(lastPath)) {
+      window.location.replace(lastPath);
     }
   }
 
-  function saveCurrentScroll() {
-    // If the user intentionally tapped Home, DO NOT save subpage scroll on unload
-    if (sessionStorage.getItem('pwa_navigating_home') === 'true') {
-      return;
-    }
-
-    const current = getCleanPath(window.location.href);
-    if (!isHome(current)) {
-      const y = window.scrollY || window.pageYOffset || document.documentElement.scrollTop || 0;
-      localStorage.setItem('pwa_active_route', current);
-      if (y > 0) {
-        localStorage.setItem(getScrollKey(current), y);
-      }
-    }
+  // Clear memory when clicking Home links or Logo
+  function attachHomeLinkListeners() {
+    const homeLinks = document.querySelectorAll('a[href="/"], a[href$="index.html"], .navbar-brand, a.nav-link[href*="index"]');
+    homeLinks.forEach(link => {
+      link.addEventListener('click', () => {
+        localStorage.removeItem('pwa_last_page');
+      });
+    });
   }
 
-  function restoreScrollForPage(page) {
-    const savedY = localStorage.getItem(getScrollKey(page));
-    if (!savedY) return;
+  // 1. Immediately evaluate current route
+  saveCurrentPage();
 
-    const targetY = parseInt(savedY, 10);
-    if (isNaN(targetY) || targetY <= 0) return;
+  // 2. Restore last visited page on initial load if present
+  restoreLastPage();
 
-    let attempts = 0;
-    const maxAttempts = 20;
-
-    function scrollLoop() {
-      attempts++;
-      window.scrollTo({ top: targetY, left: 0, behavior: 'instant' });
-
-      const docHeight = Math.max(document.body.scrollHeight, document.documentElement.scrollHeight);
-      if (docHeight < targetY + window.innerHeight && attempts < maxAttempts) {
-        requestAnimationFrame(scrollLoop);
-      }
-    }
-
-    scrollLoop();
-  }
-
-  // Intercept all taps across the app
-  document.addEventListener('click', (e) => {
-    const anchor = e.target.closest('a') || e.target.closest('[href]');
-    if (!anchor) return;
-
-    // Allow Bootstrap dropdown toggles to open sub-menus natively
-    if (anchor.classList.contains('dropdown-toggle') || 
-        anchor.getAttribute('data-toggle') === 'dropdown' || 
-        anchor.getAttribute('data-bs-toggle') === 'dropdown') {
-      return;
-    }
-
-    // Explicit check for Home or Brand logo click
-    if (isHomeLink(anchor)) {
-      closeHamburgerMenu();
-
-      // Flag intent to navigate home so pagehide event won't save subpage route again
-      sessionStorage.setItem('pwa_navigating_home', 'true');
-      localStorage.removeItem('pwa_active_route');
-
-      const current = getCleanPath(window.location.href);
-      if (isHome(current)) {
-        e.preventDefault();
-        window.scrollTo({ top: 0, left: 0, behavior: 'instant' });
-      }
-      return;
-    }
-
-    // Subpage Navigation
-    const targetUrl = anchor.getAttribute('href') || anchor.href || '';
-    if (targetUrl === '#' || targetUrl.startsWith('javascript:')) return;
-
-    const targetPage = getCleanPath(targetUrl);
-    closeHamburgerMenu();
-
-    sessionStorage.removeItem('pwa_navigating_home');
-    localStorage.removeItem(getScrollKey(targetPage));
-    saveCurrentScroll();
-    localStorage.setItem('pwa_active_route', targetPage);
-  }, true);
-
-  // Track position continuously while on subpages
-  window.addEventListener('scroll', () => {
-    const current = getCleanPath(window.location.href);
-    if (!isHome(current)) {
-      const y = window.scrollY || window.pageYOffset || document.documentElement.scrollTop || 0;
-      if (y > 0) {
-        localStorage.setItem(getScrollKey(current), y);
-      }
-    }
-  }, { passive: true });
-
-  // Evaluate routing and restore state on app startup
-  const current = getCleanPath(window.location.href);
-  const isExplicitHomeNav = sessionStorage.getItem('pwa_navigating_home') === 'true';
-
-  if (isExplicitHomeNav || isHome(current)) {
-    // We arrived on Home intentionally: clear memory and stay here
-    sessionStorage.removeItem('pwa_navigating_home');
-    localStorage.removeItem('pwa_active_route');
+  // 3. Attach listeners to Home buttons
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', attachHomeLinkListeners);
   } else {
-    // We are on a subpage: track active route and restore scroll position
-    const saved = localStorage.getItem('pwa_active_route');
-    localStorage.setItem('pwa_active_route', current);
-
-    if (document.readyState === 'complete') {
-      restoreScrollForPage(current);
-    } else {
-      window.addEventListener('load', () => restoreScrollForPage(current));
-      document.addEventListener('DOMContentLoaded', () => restoreScrollForPage(current));
-    }
+    attachHomeLinkListeners();
   }
 
-  // Preserve state on app suspend/background
-  window.addEventListener('pagehide', saveCurrentScroll);
-  window.addEventListener('freeze', saveCurrentScroll);
+  // 4. Handle Android background-to-foreground resume events
   document.addEventListener('visibilitychange', () => {
-    if (document.visibilityState === 'hidden') {
-      saveCurrentScroll();
-    } else if (document.visibilityState === 'visible') {
-      const activeFile = getCleanPath(window.location.href);
-      if (!isHome(activeFile)) {
-        restoreScrollForPage(activeFile);
-      }
+    if (document.visibilityState === 'visible') {
+      restoreLastPage();
+    } else {
+      saveCurrentPage();
     }
   });
+
+  window.addEventListener('pageshow', restoreLastPage);
 })();
 
-// 4. Service Worker Registration & Cache Progress Monitor
+// Service Worker Registration, Cache Progress, Timestamps, and Scoped Android PWA Trigger
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', () => {
+    // 1. Floating Cache Progress Bar UI
     const barContainer = document.createElement('div');
     barContainer.id = 'pwa-cache-status';
     barContainer.innerHTML = `
@@ -269,11 +121,13 @@ if ('serviceWorker' in navigator) {
       document.body.appendChild(barContainer);
     }
 
+    // 2. Register Service Worker
     navigator.serviceWorker.register('/sw.js').then(reg => {
       console.log('SW Registered:', reg.scope);
       reg.update();
     }).catch(err => console.error('SW Registration Failed:', err));
 
+    // 3. Monitor Cache Progress
     let checkInterval = setInterval(async () => {
       try {
         const cacheKeys = await caches.keys();
@@ -323,7 +177,7 @@ if ('serviceWorker' in navigator) {
   });
 }
 
-// 5. Scoped Android Install Button Handling
+// 4. Scoped Android Install Button Handling for app.html
 let deferredPrompt;
 window.addEventListener('beforeinstallprompt', (e) => {
   e.preventDefault();
@@ -353,7 +207,7 @@ function initAndroidButton() {
   }
 }
 
-// 6. PST Clock Ticker & Watermark Cleaner
+// 5. Client-side Live PST Clock Ticker & Container Space Cleaner
 function startLivePstClock() {
   document.querySelectorAll('a[href*="mobirise.com"], a[href*="mobiri.se"]').forEach(el => {
     const parent = el.parentElement;
