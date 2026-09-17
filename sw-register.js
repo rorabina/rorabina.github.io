@@ -35,10 +35,10 @@
   }
 })();
 
-// 3. Disable Mobirise Animations for Instant Jumps
-(function killMobiriseAnimations() {
+// 3. Disable Mobirise Animations & Stretch Navbar Edge-to-Edge into Status Bar
+(function applyEdgeToEdgeStyles() {
   const style = document.createElement('style');
-  style.id = 'pwa-no-animations';
+  style.id = 'pwa-edge-to-edge';
   style.innerHTML = `
     html, body {
       scroll-behavior: auto !important;
@@ -46,6 +46,14 @@
     *, *::before, *::after {
       animation: none !important;
       transition: none !important;
+    }
+    /* Stretch top navigation bar into the status bar area */
+    .navbar, 
+    .navbar.fixed-top, 
+    .navbar-dropdown,
+    header {
+      padding-top: env(safe-area-inset-top, 0px) !important;
+      background-clip: padding-box;
     }
   `;
   document.head.appendChild(style);
