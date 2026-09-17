@@ -13,16 +13,16 @@
   document.addEventListener('DOMContentLoaded', updateTheme);
 })();
 
-// Preserve & Restore Active Page State + Precision Scroll Position in Standalone PWA Mode
+// Active Page & Home/Logo Reset Management for Standalone PWA Mode
 (function managePwaState() {
   const isStandalone = window.matchMedia('(display-mode: standalone)').matches || 
                        window.matchMedia('(display-mode: fullscreen)').matches || 
                        window.navigator.standalone;
   if (!isStandalone) return;
 
-  // Prevent browser from automatically jumping to top (0,0) on navigation/restore
+  // Enable native browser scroll restoration so Chrome PWA remembers exact pixel coordinates
   if ('scrollRestoration' in history) {
-    history.scrollRestoration = 'manual';
+    history.scrollRestoration = 'auto';
   }
 
   function getCleanPath(urlStr) {
@@ -41,46 +41,7 @@
     return page === 'index.html' || page === '' || page === '/';
   }
 
-  function saveScrollPosition() {
-    const current = getCleanPath(window.location.href);
-    if (!isHome(current)) {
-      const y = window.scrollY || window.pageYOffset || document.documentElement.scrollTop || 0;
-      if (y > 0) {
-        localStorage.setItem('pwa_active_scroll', y);
-      }
-    }
-  }
-
-  function restoreScrollPosition() {
-    const savedScroll = localStorage.getItem('pwa_active_scroll');
-    if (savedScroll === null) return;
-    
-    const targetY = parseInt(savedScroll, 10);
-    if (isNaN(targetY) || targetY <= 0) return;
-
-    let attempts = 0;
-    const maxAttempts = 20;
-
-    function applyScroll() {
-      attempts++;
-      const currentHeight = Math.max(
-        document.body.scrollHeight, 
-        document.documentElement.scrollHeight
-      );
-
-      // Force scroll to target position
-      window.scrollTo(0, targetY);
-
-      // Keep re-applying scroll position until page layout fully expands or max attempts reached
-      if (currentHeight < targetY + window.innerHeight && attempts < maxAttempts) {
-        setTimeout(applyScroll, 100);
-      }
-    }
-
-    applyScroll();
-  }
-
-  // Intercept taps across the app to update state immediately
+  // Intercept taps across the app: Reset route state when tapping Home or Brand Logo
   document.addEventListener('click', (e) => {
     const anchor = e.target.closest('a') || e.target.closest('[href]');
     if (anchor) {
@@ -88,59 +49,19 @@
       const targetPage = getCleanPath(targetUrl);
 
       if (isHome(targetPage)) {
-        // Clear route & scroll memory on Home/Logo tap
+        // Clear stored route state so home always opens clean at the top
         localStorage.removeItem('pwa_active_route');
-        localStorage.removeItem('pwa_active_scroll');
       } else {
-        saveScrollPosition();
         localStorage.setItem('pwa_active_route', targetPage);
       }
     }
   }, true);
 
-  // Track scroll position continuously during active reading
-  window.addEventListener('scroll', () => {
-    const current = getCleanPath(window.location.href);
-    if (!isHome(current)) {
-      const y = window.scrollY || window.pageYOffset || document.documentElement.scrollTop || 0;
-      if (y > 0) {
-        localStorage.setItem('pwa_active_scroll', y);
-      }
-    }
-  }, { passive: true });
-
-  // Handle Initial Load & State Restoration
+  // Sync state with current location without triggering page redirects
   const current = getCleanPath(window.location.href);
-  const savedRoute = localStorage.getItem('pwa_active_route');
-
   if (!isHome(current)) {
     localStorage.setItem('pwa_active_route', current);
-    if (document.readyState === 'complete') {
-      restoreScrollPosition();
-    } else {
-      window.addEventListener('load', restoreScrollPosition);
-      document.addEventListener('DOMContentLoaded', restoreScrollPosition);
-    }
-  } else if (savedRoute && !isHome(savedRoute)) {
-    window.location.replace(savedRoute);
   }
-
-  // Deep OS suspend/background lifecycle listeners to save exact scroll position
-  window.addEventListener('pagehide', saveScrollPosition);
-  window.addEventListener('freeze', saveScrollPosition);
-  window.addEventListener('beforeunload', saveScrollPosition);
-
-  // Handle Foreground Resume & Scroll Re-engagement
-  document.addEventListener('visibilitychange', () => {
-    if (document.visibilityState === 'hidden') {
-      saveScrollPosition();
-    } else if (document.visibilityState === 'visible') {
-      const activeFile = getCleanPath(window.location.href);
-      if (!isHome(activeFile)) {
-        restoreScrollPosition();
-      }
-    }
-  });
 })();
 
 // Service Worker Registration, Cache Progress, Timestamps, and Scoped Android PWA Trigger
