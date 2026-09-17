@@ -1,48 +1,60 @@
-name: Build & Deploy Clean PWA
+name: Deploy PWA with Fullscreen Injections
 
 on:
   push:
     branches:
       - main
-    paths-ignore:
-      - '**.md'
-
-permissions:
-  contents: write
-  pages: write
-  id-token: write
-
-concurrency:
-  group: 'pages'
-  cancel-in-progress: true
 
 jobs:
-  build-and-deploy:
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
+  deploy:
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
 
     steps:
-      - name: Checkout Code
+      - name: Checkout Repository
         uses: actions/checkout@v4
 
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: '20'
+      - name: Update manifest.json for Fullscreen Mode
+        run: |
+          node -e '
+            const fs = require("fs");
+            if (fs.existsSync("manifest.json")) {
+              const manifest = JSON.parse(fs.readFileSync("manifest.json", "utf8"));
+              manifest.display = "fullscreen";
+              manifest.display_override = ["fullscreen", "minimal-ui"];
+              fs.writeFileSync("manifest.json", JSON.stringify(manifest, null, 2));
+              console.log("Updated manifest.json display rules.");
+            }
+          '
 
-      - name: Install Workbox Build
-        run: npm install workbox-build
+      - name: Inject Fullscreen Meta Tags into HTML Files
+        run: |
+          node -e '
+            const fs = require("fs");
 
-      - name: Run PWA & HTML Build Script
-        run: node build-sw.js
+            const metaTags = `
+  <!-- PWA Fullscreen Capabilities -->
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+            `.trim();
 
-      - name: Upload GitHub Pages Artifact
-        uses: actions/upload-pages-artifact@v3
-        with:
-          path: './'
+            const files = fs.readdirSync(".").filter(f => f.endsWith(".html"));
+            files.forEach(file => {
+              let content = fs.readFileSync(file, "utf8");
+              if (!content.includes("mobile-web-app-capable")) {
+                content = content.replace("</head>", `  ${metaTags}\n</head>`);
+                fs.writeFileSync(file, content);
+                console.log(`Injected fullscreen tags into ${file}`);
+              }
+            });
+          '
 
-      - name: Deploy to GitHub Pages
-        id: deployment
-        uses: actions/deploy-pages@v4
+      - name: Commit and Push Processed Files
+        run: |
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "github-actions[bot]@users.noreply.github.com"
+          git add .
+          git diff --quiet && git diff --staged --quiet || (git commit -m "Auto-inject PWA fullscreen tags and manifest rules" && git push)
