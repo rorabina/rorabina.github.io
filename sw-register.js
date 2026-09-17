@@ -70,7 +70,7 @@
            anchor.classList.contains('navbar-brand') || 
            !!anchor.closest('.navbar-brand') ||
            href === '/' || 
-           href.includes('index.html');
+           href.endsWith('index.html');
   }
 
   function getScrollKey(page) {
@@ -85,6 +85,11 @@
   }
 
   function saveCurrentScroll() {
+    // If the user intentionally tapped Home, DO NOT save subpage scroll on unload
+    if (sessionStorage.getItem('pwa_navigating_home') === 'true') {
+      return;
+    }
+
     const current = getCleanPath(window.location.href);
     if (!isHome(current)) {
       const y = window.scrollY || window.pageYOffset || document.documentElement.scrollTop || 0;
@@ -123,7 +128,7 @@
     const anchor = e.target.closest('a') || e.target.closest('[href]');
     if (!anchor) return;
 
-    // Allow Bootstrap dropdown toggles to function natively
+    // Allow Bootstrap dropdown toggles to open sub-menus natively
     if (anchor.classList.contains('dropdown-toggle') || 
         anchor.getAttribute('data-toggle') === 'dropdown' || 
         anchor.getAttribute('data-bs-toggle') === 'dropdown') {
@@ -132,18 +137,16 @@
 
     // Explicit check for Home or Brand logo click
     if (isHomeLink(anchor)) {
-      e.preventDefault();
-      e.stopPropagation();
       closeHamburgerMenu();
 
-      // Wipe active route memory completely
+      // Flag intent to navigate home so pagehide event won't save subpage route again
+      sessionStorage.setItem('pwa_navigating_home', 'true');
       localStorage.removeItem('pwa_active_route');
 
       const current = getCleanPath(window.location.href);
       if (isHome(current)) {
+        e.preventDefault();
         window.scrollTo({ top: 0, left: 0, behavior: 'instant' });
-      } else {
-        window.location.href = 'index.html';
       }
       return;
     }
@@ -155,6 +158,7 @@
     const targetPage = getCleanPath(targetUrl);
     closeHamburgerMenu();
 
+    sessionStorage.removeItem('pwa_navigating_home');
     localStorage.removeItem(getScrollKey(targetPage));
     saveCurrentScroll();
     localStorage.setItem('pwa_active_route', targetPage);
@@ -173,9 +177,15 @@
 
   // Evaluate routing and restore state on app startup
   const current = getCleanPath(window.location.href);
-  const saved = localStorage.getItem('pwa_active_route');
+  const isExplicitHomeNav = sessionStorage.getItem('pwa_navigating_home') === 'true';
 
-  if (!isHome(current)) {
+  if (isExplicitHomeNav || isHome(current)) {
+    // We arrived on Home intentionally: clear memory and stay here
+    sessionStorage.removeItem('pwa_navigating_home');
+    localStorage.removeItem('pwa_active_route');
+  } else {
+    // We are on a subpage: track active route and restore scroll position
+    const saved = localStorage.getItem('pwa_active_route');
     localStorage.setItem('pwa_active_route', current);
 
     if (document.readyState === 'complete') {
@@ -184,8 +194,6 @@
       window.addEventListener('load', () => restoreScrollForPage(current));
       document.addEventListener('DOMContentLoaded', () => restoreScrollForPage(current));
     }
-  } else if (saved && !isHome(saved)) {
-    window.location.replace(saved);
   }
 
   // Preserve state on app suspend/background
