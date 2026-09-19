@@ -1345,7 +1345,7 @@ a {
 }
 .cid-vtM4x7qR1y .mbr-overlay {
   background-color: #000000;
-  opacity: 0.3;
+  opacity: 0.4;
 }
 @media (min-width: 768px) {
   .cid-vtM4x7qR1y {
@@ -1658,13 +1658,7 @@ a {
 }
 .cid-vvlNtv4U70 img {
   width: 100%;
-  object-fit: cover;
-  height: 30rem;
-}
-@media (max-width: 767px) {
-  .cid-vvlNtv4U70 img {
-    height: 15rem;
-  }
+  height: 100%;
 }
 .cid-vvlNYUKmFF {
   padding-top: 0rem;
