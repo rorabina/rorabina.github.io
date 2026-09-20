@@ -30,10 +30,28 @@
   }
 })();
 
-// 3. Footer Branding Stylist & Live Clocks (NUL2 & NUL3 Countdown)
+// 3. Footer Branding Injector/Stylist & Live Clocks (NUL2 & NUL3 Countdown)
 (function startSiteUtilities() {
-  // Retains Mobirise branding link while matching black site aesthetic
-  function styleMobiriseFooter() {
+  // Ensures Mobirise branding link is present and styled with a black background
+  function ensureMobiriseFooter() {
+    let mobiriseLink = document.querySelector('a[href*="mobirise.com"], a[href*="mobiri.se"]');
+
+    // Inject exact Mobirise footer section if missing from exported HTML
+    if (!mobiriseLink) {
+      const footerSection = document.createElement('section');
+      footerSection.className = 'display-7 mbr-footer-branding';
+      footerSection.style.cssText = 'padding: 0; align-items: center; justify-content: center; flex-wrap: wrap; align-content: center; display: flex; position: relative; height: 4rem; background-color: #000000 !important;';
+      
+      footerSection.innerHTML = `
+        <a href="https://mobiri.se/" style="flex: 1 1; height: 4rem; position: absolute; width: 100%; z-index: 1;"></a>
+        <p style="margin: 0; text-align: center;" class="display-7">&#8203;</p>
+        <a style="z-index: 1; color: #cccccc !important; text-decoration: underline !important; opacity: 1 !important; visibility: visible !important;" href="https://mobirise.com/builder/ai-website-builder.html" target="_blank" rel="noopener">Drag &amp; Drop Website Builder</a>
+      `;
+      document.body.appendChild(footerSection);
+      mobiriseLink = footerSection.querySelector('a[href*="mobirise.com"]');
+    }
+
+    // Apply strict black background and light gray text color
     const mobiriseLinks = document.querySelectorAll('a[href*="mobirise.com"], a[href*="mobiri.se"]');
     mobiriseLinks.forEach(link => {
       link.style.setProperty('color', '#cccccc', 'important');
@@ -46,7 +64,7 @@
       }
     });
 
-    const footers = document.querySelectorAll('footer, .cid-footer, .mbr-footer');
+    const footers = document.querySelectorAll('footer, .cid-footer, .mbr-footer, .mbr-footer-branding');
     footers.forEach(footer => {
       footer.style.setProperty('background-color', '#000000', 'important');
     });
@@ -61,7 +79,6 @@
       hour12: true
     }) + ' PST';
 
-    // Targets classes, IDs, or elements containing plain text NUL2
     const nul2Elements = document.querySelectorAll('.NUL2, #NUL2, .nul2, #nul2, .pst-live-clock, .pst-clock, #pst-clock, [data-pst-clock]');
     nul2Elements.forEach(el => {
       el.textContent = nowPST;
@@ -83,13 +100,11 @@
       countdownText = `${days}d ${hours}h ${minutes}m ${seconds}s`;
     }
 
-    // 1. Target elements with explicit ID/Class/Data attributes
     const attrElements = document.querySelectorAll('.NUL3, #NUL3, .nul3, #nul3, [data-nul3]');
     attrElements.forEach(el => {
       el.textContent = countdownText;
     });
 
-    // 2. Scan DOM for plain text "NUL3" inside headings/paragraphs and swap text dynamically
     const elementsToScan = document.querySelectorAll('h1, h2, h3, h4, h5, h6, p, span, div, strong, b');
     elementsToScan.forEach(el => {
       if (el.children.length === 0 && (el.textContent.trim() === 'NUL3' || el.hasAttribute('data-is-nul3'))) {
@@ -100,7 +115,7 @@
   }
 
   function runTick() {
-    styleMobiriseFooter();
+    ensureMobiriseFooter();
     updateNul2Clock();
     updateNul3Countdown();
   }
