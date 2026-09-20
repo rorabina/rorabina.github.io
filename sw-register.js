@@ -207,8 +207,15 @@ function initAndroidButton() {
   }
 }
 
-// 5. Client-side Live PST Clock Ticker
-function startLivePstClock()
+// 5. Client-side Live PST Clock Ticker & Container Space Cleaner
+function startLivePstClock() {
+  document.querySelectorAll('a[href*="mobirise.com"], a[href*="mobiri.se"]').forEach(el => {
+    const parent = el.parentElement;
+    el.remove();
+    if (parent && parent.textContent.trim() === '') {
+      parent.remove();
+    }
+  });
 
   function updatePstClocks() {
     const nowPST = new Date().toLocaleString('en-US', {
