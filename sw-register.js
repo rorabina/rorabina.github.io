@@ -20,7 +20,6 @@
   function restoreLastPage() {
     const currentPath = window.location.pathname;
     const lastPath = localStorage.getItem('pwa_last_page');
-
     // Only restore last visited page if one is saved in storage
     if (isIndexPage(currentPath) && lastPath && !isIndexPage(lastPath)) {
       window.location.replace(lastPath);
@@ -132,12 +131,10 @@ if ('serviceWorker' in navigator) {
       try {
         const cacheKeys = await caches.keys();
         const precacheName = cacheKeys.find(key => key.includes('workbox-precache'));
-
         if (precacheName) {
           const cache = await caches.open(precacheName);
           const cachedRequests = await cache.keys();
           const currentCount = cachedRequests.length;
-
           const estimatedTotal = Math.max(currentCount, 120);
           let percent = Math.min(Math.round((currentCount / estimatedTotal) * 100), 99);
 
@@ -159,7 +156,6 @@ if ('serviceWorker' in navigator) {
             clearInterval(checkInterval);
             if (labelText) labelText.innerText = 'Ready for offline use!';
             localStorage.setItem('pwa_fully_cached', 'true');
-
             setTimeout(() => {
               const widget = document.getElementById('pwa-cache-status');
               if (widget) {
@@ -207,16 +203,8 @@ function initAndroidButton() {
   }
 }
 
-// 5. Client-side Live PST Clock Ticker & Container Space Cleaner
+// 5. Client-side Live PST Clock Ticker
 function startLivePstClock() {
-  document.querySelectorAll('a[href*="mobirise.com"], a[href*="mobiri.se"]').forEach(el => {
-    const parent = el.parentElement;
-    el.remove();
-    if (parent && parent.textContent.trim() === '') {
-      parent.remove();
-    }
-  });
-
   function updatePstClocks() {
     const nowPST = new Date().toLocaleString('en-US', {
       timeZone: 'Asia/Manila',
