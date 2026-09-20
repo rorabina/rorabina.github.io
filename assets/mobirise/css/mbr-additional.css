@@ -152,7 +152,7 @@ body {
   background-color: #a6a99c !important;
 }
 .bg-warning {
-  background-color: #ffffff !important;
+  background-color: #edefeb !important;
 }
 .bg-danger {
   background-color: #ffffff !important;
@@ -247,9 +247,9 @@ body {
 }
 .btn-warning,
 .btn-warning:active {
-  background-color: #ffffff !important;
-  border-color: #ffffff !important;
-  color: #808080 !important;
+  background-color: #edefeb !important;
+  border-color: #edefeb !important;
+  color: #6e7a61 !important;
   box-shadow: none;
 }
 .btn-warning:hover,
@@ -263,7 +263,7 @@ body {
 }
 .btn-warning.disabled,
 .btn-warning:disabled {
-  color: #808080 !important;
+  color: #6e7a61 !important;
   background-color: #ffffff !important;
   border-color: #ffffff !important;
 }
@@ -420,23 +420,23 @@ body {
 .btn-warning-outline,
 .btn-warning-outline:active {
   background-color: transparent !important;
-  border-color: #ffffff;
-  color: #ffffff;
+  border-color: #edefeb;
+  color: #edefeb;
 }
 .btn-warning-outline:hover,
 .btn-warning-outline:focus,
 .btn-warning-outline.focus,
 .btn-warning-outline.active {
-  color: #d4d4d4 !important;
+  color: #c2c8bb !important;
   background-color: transparent !important;
-  border-color: #d4d4d4 !important;
+  border-color: #c2c8bb !important;
   box-shadow: none !important;
 }
 .btn-warning-outline.disabled,
 .btn-warning-outline:disabled {
-  color: #808080 !important;
-  background-color: #ffffff !important;
-  border-color: #ffffff !important;
+  color: #6e7a61 !important;
+  background-color: #edefeb !important;
+  border-color: #edefeb !important;
 }
 .btn-danger-outline,
 .btn-danger-outline:active {
@@ -514,7 +514,7 @@ body {
   color: #a6a99c !important;
 }
 .text-warning {
-  color: #ffffff !important;
+  color: #edefeb !important;
 }
 .text-danger {
   color: #ffffff !important;
@@ -548,7 +548,7 @@ a.text-info.active {
 a.text-warning:hover,
 a.text-warning:focus,
 a.text-warning.active {
-  color: #cccccc !important;
+  color: #bac2b2 !important;
 }
 a.text-danger:hover,
 a.text-danger:focus,
@@ -591,7 +591,7 @@ a[class*="text-"]:not(.nav-link):not(.dropdown-item):not([role]):not(.navbar-cap
   background-color: #a6a99c;
 }
 .alert-warning {
-  background-color: #ffffff;
+  background-color: #edefeb;
 }
 .alert-danger {
   background-color: #ffffff;
