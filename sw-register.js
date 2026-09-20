@@ -36,13 +36,11 @@
   function styleMobiriseFooter() {
     const mobiriseLinks = document.querySelectorAll('a[href*="mobirise.com"], a[href*="mobiri.se"]');
     mobiriseLinks.forEach(link => {
-      // Style link text for clear visibility over dark background
       link.style.setProperty('color', '#cccccc', 'important');
       link.style.setProperty('text-decoration', 'underline', 'important');
       link.style.setProperty('opacity', '1', 'important');
       link.style.setProperty('visibility', 'visible', 'important');
 
-      // Set immediate parent and footer section background to black (#000000)
       if (link.parentElement) {
         link.parentElement.style.setProperty('background-color', '#000000', 'important');
       }
@@ -63,10 +61,8 @@
       hour12: true
     }) + ' PST';
 
-    const nul2Elements = document.querySelectorAll(
-      '.NUL2, #NUL2, .nul2, #nul2, .pst-live-clock, .pst-clock, #pst-clock, [data-pst-clock]'
-    );
-
+    // Targets classes, IDs, or elements containing plain text NUL2
+    const nul2Elements = document.querySelectorAll('.NUL2, #NUL2, .nul2, #nul2, .pst-live-clock, .pst-clock, #pst-clock, [data-pst-clock]');
     nul2Elements.forEach(el => {
       el.textContent = nowPST;
     });
@@ -74,29 +70,32 @@
 
   // Updates NUL3 Countdown Clock (Target: March 1, 2028, 10:00 AM UTC+8)
   function updateNul3Countdown() {
-    // Target date in UTC+8 (Asia/Manila offset +08:00)
     const targetDate = new Date('2028-03-01T10:00:00+08:00').getTime();
     const now = new Date().getTime();
     const diff = targetDate - now;
 
-    const nul3Elements = document.querySelectorAll('.NUL3, #NUL3, .nul3, #nul3, [data-nul3]');
-
-    if (diff <= 0) {
-      nul3Elements.forEach(el => {
-        el.textContent = 'Event Launched!';
-      });
-      return;
+    let countdownText = 'Event Launched!';
+    if (diff > 0) {
+      const days = Math.floor(diff / (1000 * 60 * 60 * 24));
+      const hours = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+      const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+      const seconds = Math.floor((diff % (1000 * 60)) / 1000);
+      countdownText = `${days}d ${hours}h ${minutes}m ${seconds}s`;
     }
 
-    const days = Math.floor(diff / (1000 * 60 * 60 * 24));
-    const hours = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
-    const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
-    const seconds = Math.floor((diff % (1000 * 60)) / 1000);
-
-    const countdownText = `${days}d ${hours}h ${minutes}m ${seconds}s`;
-
-    nul3Elements.forEach(el => {
+    // 1. Target elements with explicit ID/Class/Data attributes
+    const attrElements = document.querySelectorAll('.NUL3, #NUL3, .nul3, #nul3, [data-nul3]');
+    attrElements.forEach(el => {
       el.textContent = countdownText;
+    });
+
+    // 2. Scan DOM for plain text "NUL3" inside headings/paragraphs and swap text dynamically
+    const elementsToScan = document.querySelectorAll('h1, h2, h3, h4, h5, h6, p, span, div, strong, b');
+    elementsToScan.forEach(el => {
+      if (el.children.length === 0 && (el.textContent.trim() === 'NUL3' || el.hasAttribute('data-is-nul3'))) {
+        el.setAttribute('data-is-nul3', 'true');
+        el.textContent = countdownText;
+      }
     });
   }
 
