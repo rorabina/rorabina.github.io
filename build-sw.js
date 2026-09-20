@@ -24,7 +24,7 @@ async function buildSW() {
       content = content.replace(/<\/head>/i, `  ${zoomLockViewport}\n</head>`);
     }
 
-    // 2. Inject CSS & Disable Text Selection / Copying Rules
+    // 2. Inject CSS, Matching Mobirise Link Background to Footer, & Copy Lock Rules
     if (!content.includes('/* PWA Protections */')) {
       const styleInject = `
   <style id="pwa-protections">
@@ -44,6 +44,14 @@ async function buildSW() {
       -moz-user-select: text !important;
       -ms-user-select: text !important;
       user-select: text !important;
+    }
+    /* Match Mobirise dynamic link container background to black footer */
+    section[class*="cid-"],
+    section.engine,
+    div[style*="mobiri.se"],
+    a[href*="mobiri.se"] {
+      background-color: #000000 !important;
+      color: #ffffff !important;
     }
   </style>
   <script id="anti-zoom-and-copy-lock">
