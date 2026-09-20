@@ -13,6 +13,41 @@ async function buildSW() {
     hour12: true
   }) + ' PST';
 
+  // Target timestamp: March 1, 2028, 10:00:00 AM UTC+8 (Philippine Standard Time)
+  const nul3TargetDate = '2028-03-01T10:00:00+08:00';
+
+  const nul3CountdownScript = `
+<span id="nul3-countdown" style="font:inherit; color:inherit;">Loading countdown...</span>
+<script id="nul3-timer-script">
+  (function startNul3Countdown() {
+    const targetTime = new Date("${nul3TargetDate}").getTime();
+
+    function updateCountdown() {
+      const now = new Date().getTime();
+      const distance = targetTime - now;
+      const el = document.getElementById("nul3-countdown");
+
+      if (!el) return;
+
+      if (distance < 0) {
+        el.textContent = "Event Started";
+        return;
+      }
+
+      const days = Math.floor(distance / (1000 * 60 * 60 * 24));
+      const hours = Math.floor((distance % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+      const minutes = Math.floor((distance % (1000 * 60 * 60)) / (1000 * 60));
+      const seconds = Math.floor((distance % (1000 * 60)) / 1000);
+
+      el.textContent = days + "d " + hours + "h " + minutes + "m " + seconds + "s";
+    }
+
+    updateCountdown();
+    setInterval(updateCountdown, 1000);
+  })();
+</script>
+`;
+
   htmlFiles.forEach(file => {
     let content = fs.readFileSync(file, 'utf8');
 
@@ -95,6 +130,7 @@ async function buildSW() {
     // 5. Inline replacement for NUL features
     content = content.replace(/NUL1/g, `<span class="site-last-updated" style="font:inherit; color:inherit;">${buildTimeString}</span>`);
     content = content.replace(/NUL2/g, '<span class="pst-live-clock" style="font:inherit; color:inherit;">Loading PST...</span>');
+    content = content.replace(/NUL3/g, nul3CountdownScript);
 
     fs.writeFileSync(file, content, 'utf8');
   });
