@@ -30,46 +30,8 @@
   }
 })();
 
-// 3. Footer Branding Injector/Stylist & Live Clocks (NUL2 & NUL3 Countdown)
+// 3. Live Clocks (NUL2 Clock & NUL3 Countdown)
 (function startSiteUtilities() {
-  // Ensures Mobirise branding link is present and styled with a black background
-  function ensureMobiriseFooter() {
-    let mobiriseLink = document.querySelector('a[href*="mobirise.com"], a[href*="mobiri.se"]');
-
-    // Inject exact Mobirise footer section if missing from exported HTML
-    if (!mobiriseLink) {
-      const footerSection = document.createElement('section');
-      footerSection.className = 'display-7 mbr-footer-branding';
-      footerSection.style.cssText = 'padding: 0; align-items: center; justify-content: center; flex-wrap: wrap; align-content: center; display: flex; position: relative; height: 4rem; background-color: #000000 !important;';
-      
-      footerSection.innerHTML = `
-        <a href="https://mobiri.se/" style="flex: 1 1; height: 4rem; position: absolute; width: 100%; z-index: 1;"></a>
-        <p style="margin: 0; text-align: center;" class="display-7">&#8203;</p>
-        <a style="z-index: 1; color: #cccccc !important; text-decoration: underline !important; opacity: 1 !important; visibility: visible !important;" href="https://mobirise.com/builder/ai-website-builder.html" target="_blank" rel="noopener">Drag &amp; Drop Website Builder</a>
-      `;
-      document.body.appendChild(footerSection);
-      mobiriseLink = footerSection.querySelector('a[href*="mobirise.com"]');
-    }
-
-    // Apply strict black background and light gray text color
-    const mobiriseLinks = document.querySelectorAll('a[href*="mobirise.com"], a[href*="mobiri.se"]');
-    mobiriseLinks.forEach(link => {
-      link.style.setProperty('color', '#cccccc', 'important');
-      link.style.setProperty('text-decoration', 'underline', 'important');
-      link.style.setProperty('opacity', '1', 'important');
-      link.style.setProperty('visibility', 'visible', 'important');
-
-      if (link.parentElement) {
-        link.parentElement.style.setProperty('background-color', '#000000', 'important');
-      }
-    });
-
-    const footers = document.querySelectorAll('footer, .cid-footer, .mbr-footer, .mbr-footer-branding');
-    footers.forEach(footer => {
-      footer.style.setProperty('background-color', '#000000', 'important');
-    });
-  }
-
   // Updates NUL2 Live Clock (UTC+8 / Rabina Standard Time)
   function updateNul2Clock() {
     const nowPST = new Date().toLocaleString('en-US', {
@@ -115,7 +77,6 @@
   }
 
   function runTick() {
-    ensureMobiriseFooter();
     updateNul2Clock();
     updateNul3Countdown();
   }
@@ -135,31 +96,42 @@ if ('serviceWorker' in navigator) {
       console.log('SW Registered:', reg.scope);
       reg.update();
 
+      // Check if installing worker exists on registration
+      if (reg.installing) {
+        trackWorkerProgress(reg.installing);
+      }
+
       reg.addEventListener('updatefound', () => {
-        const installingWorker = reg.installing;
-        if (!installingWorker) return;
-
-        const progressBar = document.querySelector('.cache-progress-bar, #cache-progress, [data-cache-progress]');
-        const progressContainer = document.querySelector('.cache-progress-container, #cache-progress-container');
-
-        if (progressContainer) progressContainer.style.display = 'block';
-
-        installingWorker.addEventListener('statechange', () => {
-          if (installingWorker.state === 'installing') {
-            if (progressBar) progressBar.style.width = '50%';
-          } else if (installingWorker.state === 'installed') {
-            if (progressBar) progressBar.style.width = '100%';
-            setTimeout(() => {
-              if (progressContainer) progressContainer.style.display = 'none';
-            }, 2000);
-          }
-        });
+        if (reg.installing) {
+          trackWorkerProgress(reg.installing);
+        }
       });
     }).catch(err => console.error('SW Registration Failed:', err));
 
+    function trackWorkerProgress(worker) {
+      const progressBar = document.querySelector('.cache-progress-bar, #cache-progress, [data-cache-progress], .progress-bar');
+      const progressContainer = document.querySelector('.cache-progress-container, #cache-progress-container, .progress');
+
+      if (progressContainer) progressContainer.style.setProperty('display', 'block', 'important');
+
+      worker.addEventListener('statechange', () => {
+        if (worker.state === 'installing') {
+          if (progressBar) progressBar.style.width = '40%';
+        } else if (worker.state === 'installed') {
+          if (progressBar) progressBar.style.width = '100%';
+          setTimeout(() => {
+            if (progressContainer) progressContainer.style.display = 'none';
+          }, 2000);
+        }
+      });
+    }
+
+    // Direct listener for custom cache messages broadcast from sw.js
     navigator.serviceWorker.addEventListener('message', event => {
       if (event.data && event.data.type === 'CACHE_PROGRESS') {
-        const progressBar = document.querySelector('.cache-progress-bar, #cache-progress, [data-cache-progress]');
+        const progressBar = document.querySelector('.cache-progress-bar, #cache-progress, [data-cache-progress], .progress-bar');
+        const progressContainer = document.querySelector('.cache-progress-container, #cache-progress-container, .progress');
+        if (progressContainer) progressContainer.style.setProperty('display', 'block', 'important');
         if (progressBar && event.data.percent) {
           progressBar.style.width = event.data.percent + '%';
         }
