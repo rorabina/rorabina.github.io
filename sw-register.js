@@ -32,7 +32,6 @@
 
 // 3. Live Clocks (NUL2 Clock & NUL3 Countdown)
 (function startSiteUtilities() {
-  // Updates NUL2 Live Clock (UTC+8 / Rabina Standard Time)
   function updateNul2Clock() {
     const nowPST = new Date().toLocaleString('en-US', {
       timeZone: 'Asia/Manila',
@@ -47,7 +46,6 @@
     });
   }
 
-  // Updates NUL3 Countdown Clock (Target: March 1, 2028, 10:00 AM UTC+8)
   function updateNul3Countdown() {
     const targetDate = new Date('2028-03-01T10:00:00+08:00').getTime();
     const now = new Date().getTime();
@@ -89,52 +87,80 @@
   }
 })();
 
-// 4. Service Worker Registration & Precache Progress Tracker
+// 4. Guaranteed Offline Precache Progress Bar Tracker
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', () => {
+    // Utility to get or auto-create progress bar UI elements
+    function getProgressBarElements() {
+      let bar = document.querySelector('.cache-progress-bar, #cache-progress, [data-cache-progress]');
+      let container = document.querySelector('.cache-progress-container, #cache-progress-container');
+
+      // Auto-inject progress bar at top of screen if missing from HTML
+      if (!bar || !container) {
+        let dynamicContainer = document.getElementById('pwa-cache-progress-container');
+        if (!dynamicContainer) {
+          dynamicContainer = document.createElement('div');
+          dynamicContainer.id = 'pwa-cache-progress-container';
+          dynamicContainer.style.cssText = 'position: fixed; top: 0; left: 0; width: 100%; height: 5px; background: rgba(255,255,255,0.1); z-index: 99999; display: none;';
+          
+          const dynamicBar = document.createElement('div');
+          dynamicBar.id = 'pwa-cache-progress-bar';
+          dynamicBar.style.cssText = 'width: 0%; height: 100%; background: #00d2ff; transition: width 0.3s ease;';
+          
+          dynamicContainer.appendChild(dynamicBar);
+          document.body.appendChild(dynamicContainer);
+        }
+        container = dynamicContainer;
+        bar = document.getElementById('pwa-cache-progress-bar');
+      }
+
+      return { bar, container };
+    }
+
+    function setProgress(percent) {
+      const { bar, container } = getProgressBarElements();
+      if (container) container.style.setProperty('display', 'block', 'important');
+      if (bar) bar.style.setProperty('width', percent + '%', 'important');
+
+      if (percent >= 100) {
+        setTimeout(() => {
+          if (container) container.style.setProperty('display', 'none', 'important');
+        }, 1800);
+      }
+    }
+
     navigator.serviceWorker.register('/sw.js').then(reg => {
       console.log('SW Registered:', reg.scope);
       reg.update();
 
-      // Check if installing worker exists on registration
+      // Track ongoing installation immediately
       if (reg.installing) {
-        trackWorkerProgress(reg.installing);
+        trackWorker(reg.installing);
       }
 
       reg.addEventListener('updatefound', () => {
         if (reg.installing) {
-          trackWorkerProgress(reg.installing);
+          trackWorker(reg.installing);
         }
       });
     }).catch(err => console.error('SW Registration Failed:', err));
 
-    function trackWorkerProgress(worker) {
-      const progressBar = document.querySelector('.cache-progress-bar, #cache-progress, [data-cache-progress], .progress-bar');
-      const progressContainer = document.querySelector('.cache-progress-container, #cache-progress-container, .progress');
-
-      if (progressContainer) progressContainer.style.setProperty('display', 'block', 'important');
+    function trackWorker(worker) {
+      setProgress(25);
 
       worker.addEventListener('statechange', () => {
         if (worker.state === 'installing') {
-          if (progressBar) progressBar.style.width = '40%';
+          setProgress(60);
         } else if (worker.state === 'installed') {
-          if (progressBar) progressBar.style.width = '100%';
-          setTimeout(() => {
-            if (progressContainer) progressContainer.style.display = 'none';
-          }, 2000);
+          setProgress(100);
         }
       });
     }
 
-    // Direct listener for custom cache messages broadcast from sw.js
+    // Direct listener for Workbox or sw.js progress postMessages
     navigator.serviceWorker.addEventListener('message', event => {
       if (event.data && event.data.type === 'CACHE_PROGRESS') {
-        const progressBar = document.querySelector('.cache-progress-bar, #cache-progress, [data-cache-progress], .progress-bar');
-        const progressContainer = document.querySelector('.cache-progress-container, #cache-progress-container, .progress');
-        if (progressContainer) progressContainer.style.setProperty('display', 'block', 'important');
-        if (progressBar && event.data.percent) {
-          progressBar.style.width = event.data.percent + '%';
-        }
+        setProgress(event.data.percent || 50);
       }
     });
   });
