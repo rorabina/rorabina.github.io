@@ -59,7 +59,7 @@ async function buildSW() {
       content = content.replace(/<\/head>/i, `  ${zoomLockViewport}\n</head>`);
     }
 
-    // 2. Inject CSS, Matching Mobirise Link Background to Footer, & Copy Lock Rules
+    // 2. Inject Targeted CSS for Mobirise Link Background & Copy Locks
     if (!content.includes('/* PWA Protections */')) {
       const styleInject = `
   <style id="pwa-protections">
@@ -80,10 +80,11 @@ async function buildSW() {
       -ms-user-select: text !important;
       user-select: text !important;
     }
-    /* Match Mobirise dynamic link container background to black footer */
-    section[class*="cid-"],
+    /* Target ONLY the Mobirise branding engine block & dynamic footer links */
     section.engine,
+    section[style*="mobiri.se"],
     div[style*="mobiri.se"],
+    section.display-7[style*="padding"],
     a[href*="mobiri.se"] {
       background-color: #000000 !important;
       color: #ffffff !important;
