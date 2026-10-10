@@ -14,8 +14,8 @@ module.exports = function layoutProtections() {
       content = content.replace(/<\/head>/i, `  ${zoomLockViewport}\n</head>`);
     }
 
-    // 2. Inject Layout Protections, Copy Locks, & Precise Click-Shield Script
-    if (!content.includes('/\* Layout Protections & Footer Styling \*/')) {
+    // 2. Inject Layout Protections, Copy Locks, & Footer Background Styling
+    if (!content.includes('/* Layout Protections & Footer Styling */')) {
       const styleInject = `
       <style id="layout-protections">
         /* Footer & Mobirise Link Block Background Styling */
@@ -73,23 +73,11 @@ module.exports = function layoutProtections() {
         document.addEventListener('cut', (e) => e.preventDefault());
         document.addEventListener('paste', (e) => e.preventDefault());
         document.addEventListener('contextmenu', (e) => e.preventDefault());
-
-        /* Runtime Shield: Block clicks anywhere in section.display-7 unless on an anchor tag */
-        document.addEventListener('click', function(event) {
-          const display7 = event.target.closest('section.display-7');
-          if (display7) {
-            const anchor = event.target.closest('a');
-            if (!anchor || !display7.contains(anchor)) {
-              event.stopImmediatePropagation();
-              event.preventDefault();
-            }
-          }
-        }, true);
       </script>`;
       content = content.replace(/<\/head>/i, `${styleInject}\n</head>`);
     }
 
     fs.writeFileSync(file, content, 'utf8');
   });
-  console.log('Layout protections updated: runtime click-shield script applied.');
+  console.log('Layout protections updated: scrubbed unused click interceptors, kept footer theme.');
 };
