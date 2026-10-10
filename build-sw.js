@@ -108,7 +108,7 @@ async function buildSW() {
       content = content.replace(/<\/body>/i, '  <script src="sw-register.js"></script>\n</body>');
     }
 
-    // 6. Inline replacements for NULL1, NULL2 (Live Clock with Comma), and NULL3 (Countdown)
+    // 6. Inline replacements for NULL1, NULL2 (Live Clock with full month name & comma), and NULL3 (Countdown)
     content = content.replace(/NULL1/g, `<span class="site-last-updated" style="font:inherit; color:inherit;">${buildTimestampString}</span>`);
     
     const liveClockHtml = `<span class="pst-live-clock" style="font:inherit; color:inherit;"><span id="live-clock">Loading clock...</span></span>
@@ -157,7 +157,7 @@ async function buildSW() {
     fs.writeFileSync(file, content, 'utf8');
   });
 
-  // 7. Generate Workbox Service Worker with exact glob patterns matching your working setup
+  // 7. Generate Workbox Service Worker
   const { count, size } = await workboxBuild.generateSW({
     globDirectory: './',
     globPatterns: [
