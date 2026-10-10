@@ -14,7 +14,7 @@ module.exports = function layoutProtections() {
       content = content.replace(/<\/head>/i, `  ${zoomLockViewport}\n</head>`);
     }
 
-    // 2. Inject Layout Protections, Copy Locks, & Non-clickable wrapper with clickable text link
+    // 2. Inject Layout Protections, Copy Locks, & Strict Click Restriction for Section Block
     if (!content.includes('/* Layout Protections & Footer Styling */')) {
       const styleInject = `
       <style id="layout-protections">
@@ -23,13 +23,13 @@ module.exports = function layoutProtections() {
           background-color: #0f172a !important; 
         }
 
-        /* Make the container wrapper non-clickable */
-        .engine, [class*="engine"] {
+        /* Make the entire section container and engine block strictly non-clickable */
+        section.display-7, .engine, [class*="engine"] {
           pointer-events: none !important;
         }
 
-        /* Re-enable clicking specifically for the text link inside */
-        .engine a, [class*="engine"] a {
+        /* Re-enable clicking ONLY for the text link inside */
+        section.display-7 a, .engine a, [class*="engine"] a {
           pointer-events: auto !important;
           color: #94a3b8 !important;
           text-decoration: none !important;
@@ -79,5 +79,5 @@ module.exports = function layoutProtections() {
 
     fs.writeFileSync(file, content, 'utf8');
   });
-  console.log('Layout protections updated: Mobirise block non-clickable, text link clickable.');
+  console.log('Layout protections updated: section.display-7 disabled, only inner text link active.');
 };
