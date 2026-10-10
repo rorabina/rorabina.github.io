@@ -14,7 +14,7 @@ module.exports = function layoutProtections() {
       content = content.replace(/<\/head>/i, `  ${zoomLockViewport}\n</head>`);
     }
 
-    // 2. Inject Layout Protections, Copy Locks, & Click Interceptor
+    // 2. Inject Layout Protections, Copy Locks, & Targeted Element Lockdown
     if (!content.includes('/* Layout Protections & Footer Styling */')) {
       const styleInject = `
       <style id="layout-protections">
@@ -23,11 +23,20 @@ module.exports = function layoutProtections() {
           background-color: #0f172a !important; 
         }
 
-        /* Muted link color matching footer tone */
+        /* Disable pointer events on the entire section container and wrappers */
+        section.display-7, section.display-7 > div, section.display-7 .container, section.display-7 .row {
+          pointer-events: none !important;
+        }
+
+        /* Explicitly re-enable pointer events and interaction ONLY for the text link */
         section.display-7 a, .engine a, [class*="engine"] a {
+          pointer-events: auto !important;
           color: #64748b !important;
           text-decoration: none !important;
           cursor: pointer !important;
+          display: inline-block !important;
+          position: relative !important;
+          z-index: 10 !important;
         }
 
         section.display-7 a:hover, .engine a:hover, [class*="engine"] a:hover {
@@ -73,23 +82,11 @@ module.exports = function layoutProtections() {
         document.addEventListener('cut', (e) => e.preventDefault());
         document.addEventListener('paste', (e) => e.preventDefault());
         document.addEventListener('contextmenu', (e) => e.preventDefault());
-
-        /* Prevent clicking anywhere on display-7 section EXCEPT the link */
-        document.addEventListener('click', function(event) {
-          const display7Section = event.target.closest('section.display-7');
-          if (display7Section) {
-            // If the click is NOT on an anchor tag, stop it
-            if (!event.target.closest('a')) {
-              event.preventDefault();
-              event.stopPropagation();
-            }
-          }
-        }, true);
       </script>`;
       content = content.replace(/<\/head>/i, `${styleInject}\n</head>`);
     }
 
     fs.writeFileSync(file, content, 'utf8');
   });
-  console.log('Layout protections updated: JS click interceptor applied to section.display-7.');
+  console.log('Layout protections updated: container pointer-events disabled, anchor z-index prioritized.');
 };
