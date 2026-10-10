@@ -7,6 +7,7 @@ function processHtmlFiles(dir) {
   function walk(currentDir) {
     fs.readdirSync(currentDir).forEach(file => {
       const fullPath = path.join(currentDir, file);
+      
       if (fs.statSync(fullPath).isDirectory()) {
         if (file !== '.git' && file !== '.github' && file !== 'assets') {
           walk(fullPath);
@@ -73,7 +74,7 @@ function processHtmlFiles(dir) {
         `;
         content = content.replace(/NULL3/g, countdownHtml);
 
-        // 4. Inject CSS to style footer & manifest link in <head>
+        // 4. Inject manifest link and footer background color styling
         const headInjections = `
           <link rel="manifest" href="/manifest.json">
           <style>
@@ -93,6 +94,8 @@ function processHtmlFiles(dir) {
         }
 
         fs.writeFileSync(fullPath, content, 'utf8');
+
+        // Track relative path for dynamic service worker generation
         const relPath = path.relative(dir, fullPath).replace(/\\/g, '/');
         htmlFiles.push(relPath);
       }
@@ -103,4 +106,53 @@ function processHtmlFiles(dir) {
   return htmlFiles;
 }
 
-processHtmlFiles('./');
+const discoveredHtmls = processHtmlFiles('./');
+
+// Automatically generate sw.js with ALL discovered HTML files included
+const swContent = `
+const CACHE_NAME = 'rorabina-pwa-v4';
+const ASSETS_TO_CACHE = [
+  '/',
+  '/manifest.json',
+  ${discoveredHtmls.map(file => `'/' + '${file}'`).join(',\n  ')}
+];
+
+self.addEventListener('install', (event) => {
+  event.waitUntil(
+    caches.open(CACHE_NAME).then((cache) => {
+      return Promise.allSettled(
+        ASSETS_TO_CACHE.map(asset => 
+          cache.add(asset).catch(err => console.warn('Skipped asset:', asset, err))
+        )
+      );
+    }).then(() => self.skipWaiting())
+  );
+});
+
+self.addEventListener('activate', (event) => {
+  event.waitUntil(
+    caches.keys().then((keys) => {
+      return Promise.all(
+        keys.map((key) => {
+          if (key !== CACHE_NAME) {
+            return caches.delete(key);
+          }
+        })
+      );
+    }).then(() => self.clients.claim())
+  );
+});
+
+self.addEventListener('fetch', (event) => {
+  event.respondWith(
+    caches.match(event.request).then((cachedResponse) => {
+      return cachedResponse || fetch(event.request).catch(() => {
+        return caches.match('/index.html');
+      });
+    })
+  );
+});
+`;
+
+fs.writeFileSync('./sw.js', swContent, 'utf8');
+console.log('Successfully generated sw.js with automated files:', discoveredHtmls.length);
