@@ -15,7 +15,6 @@ function processHtmlFiles(dir) {
       } else if (path.extname(fullPath) === '.html') {
         let content = fs.readFileSync(fullPath, 'utf8');
 
-        // 1. Generate date & time for NULL1 (Static build stamp)
         const now = new Date();
         const optionsDate = { timeZone: 'Asia/Taipei', year: 'numeric', month: 'long', day: 'numeric' };
         const optionsTime = { timeZone: 'Asia/Taipei', hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: true };
@@ -24,7 +23,6 @@ function processHtmlFiles(dir) {
         const formattedTimeStatic = new Intl.DateTimeFormat('en-US', optionsTime).format(now) + ' PST';
         content = content.replace(/NULL1/g, `${formattedDate}, ${formattedTimeStatic}`);
 
-        // 2. Replace NULL2 with live ticking clock script
         const null2Html = `
           <span id="live-clock">Loading clock...</span>
           <script>
@@ -45,7 +43,6 @@ function processHtmlFiles(dir) {
         `;
         content = content.replace(/NULL2/g, null2Html);
 
-        // 3. Replace NULL3 with live countdown pointing to March 1, 2028 10:00:00 AM UTC+8
         const targetDate = new Date('2028-03-01T10:00:00+08:00').getTime();
         const countdownHtml = `
           <span id="live-countdown">Loading countdown...</span>
@@ -74,7 +71,6 @@ function processHtmlFiles(dir) {
         `;
         content = content.replace(/NULL3/g, countdownHtml);
 
-        // 4. Inject manifest link and footer background color styling
         const headInjections = `
           <link rel="manifest" href="/manifest.json">
           <style>
@@ -87,7 +83,6 @@ function processHtmlFiles(dir) {
           content = content.replace('</head>', `${headInjections}\n</head>`);
         }
 
-        // 5. Ensure service worker registration script is injected before </body>
         const scriptTag = '<script src="/sw-register.js"></script>';
         if (!content.includes('sw-register.js')) {
           content = content.replace('</body>', `${scriptTag}\n</body>`);
@@ -95,7 +90,6 @@ function processHtmlFiles(dir) {
 
         fs.writeFileSync(fullPath, content, 'utf8');
 
-        // Track relative path for dynamic service worker generation
         const relPath = path.relative(dir, fullPath).replace(/\\/g, '/');
         htmlFiles.push(relPath);
       }
@@ -108,9 +102,8 @@ function processHtmlFiles(dir) {
 
 const discoveredHtmls = processHtmlFiles('./');
 
-// Automatically generate sw.js with ALL discovered HTML files included
 const swContent = `
-const CACHE_NAME = 'rorabina-pwa-v4';
+const CACHE_NAME = 'rorabina-pwa-v5';
 const ASSETS_TO_CACHE = [
   '/',
   '/manifest.json',
@@ -155,4 +148,4 @@ self.addEventListener('fetch', (event) => {
 `;
 
 fs.writeFileSync('./sw.js', swContent, 'utf8');
-console.log('Successfully generated sw.js with automated files:', discoveredHtmls.length);
+console.log('Successfully generated sw.js with files:', discoveredHtmls.length);
