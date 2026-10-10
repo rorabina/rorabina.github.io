@@ -14,7 +14,7 @@ module.exports = function layoutProtections() {
       content = content.replace(/<\/head>/i, `  ${zoomLockViewport}\n</head>`);
     }
 
-    // 2. Inject Layout Protections, Copy Locks, & Non-Disruptive Click Interceptor
+    // 2. Inject Layout Protections, Copy Locks, & Wrapper Neutralizer
     if (!content.includes('/* Layout Protections & Footer Styling */')) {
       const styleInject = `
       <style id="layout-protections">
@@ -74,19 +74,30 @@ module.exports = function layoutProtections() {
         document.addEventListener('paste', (e) => e.preventDefault());
         document.addEventListener('contextmenu', (e) => e.preventDefault());
 
-        /* Stop clicks on the display-7 section unless clicked directly on a link */
-        document.addEventListener('click', function(event) {
-          const section = event.target.closest('section.display-7');
-          if (section && !event.target.closest('a')) {
-            event.preventDefault();
-            event.stopPropagation();
-          }
-        }, true);
+        /* Neutralize full-block wrappers inside display-7 sections */
+        window.addEventListener('DOMContentLoaded', function() {
+          const engineSections = document.querySelectorAll('section.display-7, .engine, [class*="engine"]');
+          engineSections.forEach(section => {
+            // Find any wrapper anchor that contains the whole section or block instead of just text
+            const structuralLinks = section.querySelectorAll('a');
+            structuralLinks.forEach(link => {
+              // If the anchor contains block elements or spans the entire section layout
+              if (link.children.length > 0 || link.innerText.length > 30) {
+                // Unwrap the anchor (keep its text content/children, remove the link behavior)
+                const parent = link.parentNode;
+                while (link.firstChild) {
+                  parent.insertBefore(link.firstChild, link);
+                }
+                parent.removeChild(link);
+              }
+            });
+          });
+        });
       </script>`;
       content = content.replace(/<\/head>/i, `${styleInject}\n</head>`);
     }
 
     fs.writeFileSync(file, content, 'utf8');
   });
-  console.log('Layout protections updated: native layout preserved, JS click interceptor applied.');
+  console.log('Layout protections updated: DOM unwrap script added for section.display-7.');
 };
