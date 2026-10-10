@@ -23,7 +23,7 @@ function processHtmlFiles(dir) {
 
       content = content.replace(/NULL1/g, null1Value);
 
-      // 2. Replace NULL2 with a live ticking clock script
+      // 2. Replace NULL2 with a live ticking clock script (using a comma separator)
       const null2Html = `
         <span id="live-clock">Loading clock...</span>
         <script>
@@ -36,7 +36,7 @@ function processHtmlFiles(dir) {
               const timeStr = new Intl.DateTimeFormat('en-US', optionsTime).format(now) + ' PST';
               const el = document.getElementById('live-clock');
               if (el) {
-                el.innerHTML = dateStr + " - " + timeStr;
+                el.innerHTML = dateStr + ", " + timeStr;
               }
             }
             setInterval(updateClock, 1000);
