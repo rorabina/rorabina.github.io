@@ -14,11 +14,10 @@ module.exports = function layoutProtections() {
       content = content.replace(/<\/head>/i, `  ${zoomLockViewport}\n</head>`);
     }
 
-    // 2. Inject Layout Protections & Copy Locks (Without touching block backgrounds)
-    if (!content.includes('/* Layout Protections */')) {
+    // 2. Inject ONLY PWA Selection & Touch Locks (Zero CSS background overrides)
+    if (!content.includes('id="layout-protections"')) {
       const styleInject = `
       <style id="layout-protections">
-        /* Disable Selection & Touch Callouts for PWA */
         *, html, body { 
           -webkit-user-select: none !important; 
           -moz-user-select: none !important; 
@@ -28,7 +27,6 @@ module.exports = function layoutProtections() {
           touch-action: manipulation; 
           -webkit-text-size-adjust: 100%; 
         }
-
         input, textarea { 
           -webkit-user-select: text !important; 
           -moz-user-select: text !important; 
@@ -62,5 +60,5 @@ module.exports = function layoutProtections() {
 
     fs.writeFileSync(file, content, 'utf8');
   });
-  console.log('Layout protections updated: background overrides completely removed to restore all block photos.');
+  console.log('Layout protections cleaned: zero CSS background interference.');
 };
