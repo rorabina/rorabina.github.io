@@ -21,11 +21,9 @@ function processHtmlFiles(dir) {
         
         const formattedDate = new Intl.DateTimeFormat('en-US', optionsDate).format(now);
         const formattedTimeStatic = new Intl.DateTimeFormat('en-US', optionsTime).format(now) + ' PST';
-        const null1Value = `${formattedDate}, ${formattedTimeStatic}`;
+        content = content.replace(/NULL1/g, `${formattedDate}, ${formattedTimeStatic}`);
 
-        content = content.replace(/NULL1/g, null1Value);
-
-        // 2. Replace NULL2 with a live ticking clock script
+        // 2. Replace NULL2 with live ticking clock script
         const null2Html = `
           <span id="live-clock">Loading clock...</span>
           <script>
@@ -37,9 +35,7 @@ function processHtmlFiles(dir) {
                 const dateStr = new Intl.DateTimeFormat('en-US', optionsDate).format(now);
                 const timeStr = new Intl.DateTimeFormat('en-US', optionsTime).format(now) + ' PST';
                 const el = document.getElementById('live-clock');
-                if (el) {
-                  el.innerHTML = dateStr + ", " + timeStr;
-                }
+                if (el) el.innerHTML = dateStr + ", " + timeStr;
               }
               setInterval(updateClock, 1000);
               updateClock();
@@ -48,7 +44,7 @@ function processHtmlFiles(dir) {
         `;
         content = content.replace(/NULL2/g, null2Html);
 
-        // 3. Replace NULL3 with a live countdown script pointing to March 1, 2028 10:00:00 AM UTC+8
+        // 3. Replace NULL3 with live countdown pointing to March 1, 2028 10:00:00 AM UTC+8
         const targetDate = new Date('2028-03-01T10:00:00+08:00').getTime();
         const countdownHtml = `
           <span id="live-countdown">Loading countdown...</span>
@@ -77,16 +73,17 @@ function processHtmlFiles(dir) {
         `;
         content = content.replace(/NULL3/g, countdownHtml);
 
-        // 4. Inject CSS to style the footer background color to #0f172a
-        const customStyle = `
+        // 4. Inject CSS to style footer & manifest link in <head>
+        const headInjections = `
+          <link rel="manifest" href="/manifest.json">
           <style>
             section.cid-s48MC36cej, footer, .mbr-section, .mbr-footer {
               background-color: #0f172a !important;
             }
           </style>
         `;
-        if (!content.includes('#0f172a')) {
-          content = content.replace('</head>', `${customStyle}\n</head>`);
+        if (!content.includes('manifest.json')) {
+          content = content.replace('</head>', `${headInjections}\n</head>`);
         }
 
         // 5. Ensure service worker registration script is injected before </body>
@@ -96,11 +93,8 @@ function processHtmlFiles(dir) {
         }
 
         fs.writeFileSync(fullPath, content, 'utf8');
-
-        // Track relative path for service worker caching
         const relPath = path.relative(dir, fullPath).replace(/\\/g, '/');
         htmlFiles.push(relPath);
-        console.log(`Successfully processed: ${relPath}`);
       }
     });
   }
@@ -109,6 +103,4 @@ function processHtmlFiles(dir) {
   return htmlFiles;
 }
 
-// Run processor and generate dynamic sw.js manifest
-const updatedPages = processHtmlFiles('./');
-console.log('Discovered HTML pages for caching:', updatedPages);
+processHtmlFiles('./');
