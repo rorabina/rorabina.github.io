@@ -14,8 +14,8 @@ module.exports = function layoutProtections() {
       content = content.replace(/<\/head>/i, `  ${zoomLockViewport}\n</head>`);
     }
 
-    // 2. Inject Layout Protections, Copy Locks, & Clean Non-Clickable Container Styling
-    if (!content.includes('/* Layout Protections & Footer Styling */')) {
+    // 2. Inject Layout Protections, Copy Locks, & Precise Click-Shield Script
+    if (!content.includes('/\* Layout Protections & Footer Styling \*/')) {
       const styleInject = `
       <style id="layout-protections">
         /* Footer & Mobirise Link Block Background Styling */
@@ -23,15 +23,8 @@ module.exports = function layoutProtections() {
           background-color: #0f172a !important; 
         }
 
-        /* Make the entire display-7 section unclickable as a container, preserving natural flow */
-        section.display-7 {
-          pointer-events: none !important;
-          background-color: #0f172a !important;
-        }
-
-        /* Re-enable clicking exclusively for the text link inside */
+        /* Natural styling for the link text */
         section.display-7 a, .engine a, [class*="engine"] a {
-          pointer-events: auto !important;
           color: #64748b !important;
           text-decoration: none !important;
           cursor: pointer !important;
@@ -80,11 +73,23 @@ module.exports = function layoutProtections() {
         document.addEventListener('cut', (e) => e.preventDefault());
         document.addEventListener('paste', (e) => e.preventDefault());
         document.addEventListener('contextmenu', (e) => e.preventDefault());
+
+        /* Runtime Shield: Block clicks anywhere in section.display-7 unless on an anchor tag */
+        document.addEventListener('click', function(event) {
+          const display7 = event.target.closest('section.display-7');
+          if (display7) {
+            const anchor = event.target.closest('a');
+            if (!anchor || !display7.contains(anchor)) {
+              event.stopImmediatePropagation();
+              event.preventDefault();
+            }
+          }
+        }, true);
       </script>`;
       content = content.replace(/<\/head>/i, `${styleInject}\n</head>`);
     }
 
     fs.writeFileSync(file, content, 'utf8');
   });
-  console.log('Layout protections updated: natural layout preserved, white bar removed.');
+  console.log('Layout protections updated: runtime click-shield script applied.');
 };
