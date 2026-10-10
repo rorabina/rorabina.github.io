@@ -14,23 +14,23 @@ module.exports = function layoutProtections() {
       content = content.replace(/<\/head>/i, `  ${zoomLockViewport}\n</head>`);
     }
 
-    // 2. Inject Layout Protections, Copy Locks, & Scoped Footer Background Styling
-    if (!content.includes('/* Layout Protections & Footer Styling */')) {
+    // 2. Inject Layout Protections & Strictly Scoped Footer Background Styling
+    if (!content.includes('/\* Layout Protections & Footer Styling \*/')) {
       const styleInject = `
       <style id="layout-protections">
-        /* Footer & Mobirise Link Block Background Styling (Restricted strictly to footers/engine blocks) */
-        footer, .mbr-footer, .engine, [class*="engine"] { 
+        /* Strictly target ONLY the Mobirise engine attribution block at the bottom, NEVER headers */
+        section.display-7.engine, div.engine, [class*="engine-block"] { 
           background-color: #0f172a !important; 
         }
 
-        /* Natural styling for the footer link text */
-        .engine a, [class*="engine"] a {
+        /* Natural styling for the link text inside the footer block */
+        section.display-7.engine a, div.engine a {
           color: #64748b !important;
           text-decoration: none !important;
           cursor: pointer !important;
         }
 
-        .engine a:hover, [class*="engine"] a:hover {
+        section.display-7.engine a:hover, div.engine a:hover {
           color: #94a3b8 !important;
           text-decoration: underline !important;
         }
@@ -79,5 +79,5 @@ module.exports = function layoutProtections() {
 
     fs.writeFileSync(file, content, 'utf8');
   });
-  console.log('Layout protections updated: scoped footer styling, hero background left untouched.');
+  console.log('Layout protections updated: broad footer selectors removed to preserve hero background.');
 };
