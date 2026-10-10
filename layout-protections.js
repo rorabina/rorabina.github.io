@@ -14,7 +14,7 @@ module.exports = function layoutProtections() {
       content = content.replace(/<\/head>/i, `  ${zoomLockViewport}\n</head>`);
     }
 
-    // 2. Inject Layout Protections, Copy Locks, & Strict Click Restriction for Section Block
+    // 2. Inject Layout Protections, Copy Locks, & Precise Link-Only Interactivity
     if (!content.includes('/* Layout Protections & Footer Styling */')) {
       const styleInject = `
       <style id="layout-protections">
@@ -23,16 +23,22 @@ module.exports = function layoutProtections() {
           background-color: #0f172a !important; 
         }
 
-        /* Make the entire section container and engine block strictly non-clickable */
-        section.display-7, .engine, [class*="engine"] {
+        /* Absolute Lockdown: Disable clicks on the section, container, and wrappers */
+        section.display-7, section.display-7 *, .engine, .engine *, [class*="engine"], [class*="engine"] * {
           pointer-events: none !important;
         }
 
-        /* Re-enable clicking ONLY for the text link inside */
+        /* Re-enable clicks ONLY for the actual anchor text link */
         section.display-7 a, .engine a, [class*="engine"] a {
           pointer-events: auto !important;
-          color: #94a3b8 !important;
+          color: #64748b !important; /* Muted blue-grey matching footer tone */
           text-decoration: none !important;
+          cursor: pointer !important;
+        }
+
+        section.display-7 a:hover, .engine a:hover, [class*="engine"] a:hover {
+          color: #94a3b8 !important; /* Lighter shade on hover */
+          text-decoration: underline !important;
         }
 
         /* Disable Selection & Touch Callouts for PWA */
@@ -79,5 +85,5 @@ module.exports = function layoutProtections() {
 
     fs.writeFileSync(file, content, 'utf8');
   });
-  console.log('Layout protections updated: section.display-7 disabled, only inner text link active.');
+  console.log('Layout protections updated: strict link-only pointer events applied.');
 };
