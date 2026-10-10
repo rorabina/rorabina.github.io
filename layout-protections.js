@@ -1,6 +1,6 @@
 const fs = require('fs');
 
-module.exports = function cleanMobirise() {
+module.exports = function layoutProtections() {
   const htmlFiles = fs.readdirSync('./').filter(file => file.endsWith('.html'));
   
   htmlFiles.forEach(file => {
@@ -14,13 +14,25 @@ module.exports = function cleanMobirise() {
       content = content.replace(/<\/head>/i, `  ${zoomLockViewport}\n</head>`);
     }
 
-    // 2. Inject Fail-Safe, Copy Locks & #0f172a Footer Styling (Mobirise links left untouched)
-    if (!content.includes('/* Layout Protections & Footer */')) {
+    // 2. Inject Layout Protections, Copy Locks, & Non-clickable wrapper with clickable text link
+    if (!content.includes('/* Layout Protections & Footer Styling */')) {
       const styleInject = `
       <style id="layout-protections">
-        /* Footer Background Styling */
-        section.cid-s48MC36cej, footer, .mbr-section, .mbr-footer { 
+        /* Footer & Mobirise Link Block Background Styling */
+        section.cid-s48MC36cej, footer, .mbr-section, .mbr-footer, .engine, [class*="engine"] { 
           background-color: #0f172a !important; 
+        }
+
+        /* Make the container wrapper non-clickable */
+        .engine, [class*="engine"] {
+          pointer-events: none !important;
+        }
+
+        /* Re-enable clicking specifically for the text link inside */
+        .engine a, [class*="engine"] a {
+          pointer-events: auto !important;
+          color: #94a3b8 !important;
+          text-decoration: none !important;
         }
 
         /* Disable Selection & Touch Callouts for PWA */
@@ -67,5 +79,5 @@ module.exports = function cleanMobirise() {
 
     fs.writeFileSync(file, content, 'utf8');
   });
-  console.log('Layout protections and footer styling applied successfully (Mobirise links preserved).');
+  console.log('Layout protections updated: Mobirise block non-clickable, text link clickable.');
 };
