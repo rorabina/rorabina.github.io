@@ -12,19 +12,41 @@ function processHtmlFiles(dir) {
     } else if (path.extname(fullPath) === '.html') {
       let content = fs.readFileSync(fullPath, 'utf8');
 
-      // 1. Generate current date/time values for NULL1 and NULL2 in UTC+8
+      // 1. Generate date & time for NULL1 (Static build stamp)
       const now = new Date();
       const optionsDate = { timeZone: 'Asia/Taipei', year: 'numeric', month: 'long', day: 'numeric' };
       const optionsTime = { timeZone: 'Asia/Taipei', hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: true };
       
       const formattedDate = new Intl.DateTimeFormat('en-US', optionsDate).format(now);
-      const formattedTime = new Intl.DateTimeFormat('en-US', optionsTime).format(now) + ' PST';
+      const formattedTimeStatic = new Intl.DateTimeFormat('en-US', optionsTime).format(now) + ' PST';
+      const null1Value = `${formattedDate}, ${formattedTimeStatic}`;
 
-      // Replace NULL1 and NULL2 placeholders
-      content = content.replace(/NULL1/g, formattedDate);
-      content = content.replace(/NULL2/g, formattedTime);
+      content = content.replace(/NULL1/g, null1Value);
 
-      // 2. Replace NULL3 with a live countdown script pointing to March 1, 2028 10:00:00 AM UTC+8
+      // 2. Replace NULL2 with a live ticking clock script
+      const null2Html = `
+        <span id="live-clock">Loading clock...</span>
+        <script>
+          (function() {
+            function updateClock() {
+              const now = new Date();
+              const optionsDate = { timeZone: 'Asia/Taipei', year: 'numeric', month: 'long', day: 'numeric' };
+              const optionsTime = { timeZone: 'Asia/Taipei', hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: true };
+              const dateStr = new Intl.DateTimeFormat('en-US', optionsDate).format(now);
+              const timeStr = new Intl.DateTimeFormat('en-US', optionsTime).format(now) + ' PST';
+              const el = document.getElementById('live-clock');
+              if (el) {
+                el.innerHTML = dateStr + " - " + timeStr;
+              }
+            }
+            setInterval(updateClock, 1000);
+            updateClock();
+          })();
+        </script>
+      `;
+      content = content.replace(/NULL2/g, null2Html);
+
+      // 3. Replace NULL3 with a live countdown script pointing to March 1, 2028 10:00:00 AM UTC+8
       const targetDate = new Date('2028-03-01T10:00:00+08:00').getTime();
       const countdownHtml = `
         <span id="live-countdown">Loading countdown...</span>
@@ -53,7 +75,7 @@ function processHtmlFiles(dir) {
       `;
       content = content.replace(/NULL3/g, countdownHtml);
 
-      // 3. Inject CSS to style the footer background color to #0f172a
+      // 4. Inject CSS to style the footer background color to #0f172a
       const customStyle = `
         <style>
           section.cid-s48MC36cej, footer, .mbr-section, .mbr-footer {
@@ -65,7 +87,7 @@ function processHtmlFiles(dir) {
         content = content.replace('</head>', `${customStyle}\n</head>`);
       }
 
-      // 4. Ensure service worker registration script is injected before </body>
+      // 5. Ensure service worker registration script is injected before </body>
       const scriptTag = '<script src="/sw-register.js"></script>';
       if (!content.includes('sw-register.js')) {
         content = content.replace('</body>', `${scriptTag}\n</body>`);
