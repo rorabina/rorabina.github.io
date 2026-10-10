@@ -23,8 +23,10 @@ module.exports = function injectDynamics() {
       content = content.replace(/<\/body>/i, '  <script src="sw-register.js"></script>\n</body>');
     }
 
+    // NULL1: Static build timestamp
     content = content.replace(/NULL1/g, `<span class="site-last-updated" style="font:inherit; color:inherit;">${buildTimestampString}</span>`);
     
+    // NULL2: Live PST Clock (with enforced long month options in the runtime loop)
     const liveClockHtml = `<span class="pst-live-clock" style="font:inherit; color:inherit;"><span id="live-clock">Loading clock...</span></span>
     <script>
       (function() {
@@ -43,6 +45,7 @@ module.exports = function injectDynamics() {
     </script>`;
     content = content.replace(/NULL2/g, liveClockHtml);
 
+    // NULL3: Countdown Timer
     const countdownHtml = `<span class="live-countdown-timer" style="font:inherit; color:inherit;"><span id="live-countdown">Loading countdown...</span></span>
     <script>
       (function() {
@@ -67,5 +70,5 @@ module.exports = function injectDynamics() {
 
     fs.writeFileSync(file, content, 'utf8');
   });
-  console.log('Dynamics (NULL1, NULL2, NULL3, manifests) injected successfully.');
+  console.log('Dynamics injected successfully with strict long-month runtime enforcement.');
 };
