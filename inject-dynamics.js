@@ -32,7 +32,7 @@ module.exports = function injectDynamics() {
         // 3. Replace NULL1 / NUL1 with build time
         content = content.replace(/NULL1|NUL1/g, `<span class="site-last-updated" style="font:inherit; color:inherit;">${buildTimeString}</span>`);
 
-        // 4. Replace NULL2 / NUL2 with live clock (fully expanded month & time components)
+        // 4. Replace NULL2 / NUL2 with live clock (forced 'en-US' locale and long month options)
         const liveClockHtml = '<span class="pst-live-clock" style="font:inherit; color:inherit;"><span id="live-clock">Loading clock...</span></span>' +
             '<script>' +
             '(function() {' +
