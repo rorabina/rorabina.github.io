@@ -4,8 +4,17 @@ module.exports = function injectDynamics() {
     const htmlFiles = fs.readdirSync('./').filter(file => file.endsWith('.html'));
     const now = new Date();
     
-    // Build time string for NULL1 (using month: 'long' for full month name)
-    const buildTimeString = now.toLocaleString('en-US', { timeZone: 'Asia/Manila', month: 'long', day: 'numeric', year: 'numeric', timeStyle: 'medium', hour12: true }) + ' PST';
+    // Build time string for NULL1 using safe Node.js formatting options
+    const buildTimeString = now.toLocaleString('en-US', { 
+        timeZone: 'Asia/Manila', 
+        month: 'long', 
+        day: 'numeric', 
+        year: 'numeric', 
+        hour: 'numeric', 
+        minute: '2-digit', 
+        second: '2-digit', 
+        hour12: true 
+    }) + ' PST';
 
     htmlFiles.forEach(file => {
         let content = fs.readFileSync(file, 'utf8');
@@ -23,13 +32,13 @@ module.exports = function injectDynamics() {
         // 3. Replace NULL1 / NUL1 with build time
         content = content.replace(/NULL1|NUL1/g, `<span class="site-last-updated" style="font:inherit; color:inherit;">${buildTimeString}</span>`);
 
-        // 4. Replace NULL2 / NUL2 with live clock (using month: 'long' for full month name)
+        // 4. Replace NULL2 / NUL2 with live clock (fully expanded month & time components)
         const liveClockHtml = '<span class="pst-live-clock" style="font:inherit; color:inherit;"><span id="live-clock">Loading clock...</span></span>' +
             '<script>' +
             '(function() {' +
             '  function updateClock() {' +
             '    const now = new Date();' +
-            '    const timeStr = now.toLocaleString("en-US", { timeZone: "Asia/Manila", month: "long", day: "numeric", year: "numeric", timeStyle: "medium", hour12: true }) + " PST";' +
+            '    const timeStr = now.toLocaleString("en-US", { timeZone: "Asia/Manila", month: "long", day: "numeric", year: "numeric", hour: "numeric", minute: "2-digit", second: "2-digit", hour12: true }) + " PST";' +
             '    const el = document.getElementById("live-clock");' +
             '    if (el) el.innerHTML = timeStr;' +
             '  }' +
