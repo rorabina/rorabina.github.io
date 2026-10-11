@@ -32,13 +32,15 @@ module.exports = function injectDynamics() {
         // 3. Replace NULL1 / NUL1 with build time
         content = content.replace(/NULL1|NUL1/g, `<span class="site-last-updated" style="font:inherit; color:inherit;">${buildTimeString}</span>`);
 
-        // 4. Replace NULL2 / NUL2 with live clock (forced 'en-US' locale and long month options)
+        // 4. Replace NULL2 / NUL2 with live clock using explicit long month components
         const liveClockHtml = '<span class="pst-live-clock" style="font:inherit; color:inherit;"><span id="live-clock">Loading clock...</span></span>' +
             '<script>' +
             '(function() {' +
             '  function updateClock() {' +
             '    const now = new Date();' +
-            '    const timeStr = now.toLocaleString("en-US", { timeZone: "Asia/Manila", month: "long", day: "numeric", year: "numeric", hour: "numeric", minute: "2-digit", second: "2-digit", hour12: true }) + " PST";' +
+            '    const options = { timeZone: "Asia/Manila", month: "long", day: "numeric", year: "numeric", hour: "numeric", minute: "2-digit", second: "2-digit", hour12: true };' +
+            '    const formatter = new Intl.DateTimeFormat("en-US", options);' +
+            '    const timeStr = formatter.format(now) + " PST";' +
             '    const el = document.getElementById("live-clock");' +
             '    if (el) el.innerHTML = timeStr;' +
             '  }' +
