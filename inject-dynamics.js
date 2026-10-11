@@ -1,6 +1,11 @@
 (function() {
     'use strict';
 
+    // Prevent Node.js / Server-side build environments from throwing reference errors
+    if (typeof window === 'undefined' || typeof document === 'undefined') {
+        return;
+    }
+
     // 1. Ensure viewport-fit=cover is present for edge-to-edge / status bar extension
     let viewportMeta = document.querySelector('meta[name="viewport"]');
     if (!viewportMeta) {
