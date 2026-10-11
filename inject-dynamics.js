@@ -1,75 +1,50 @@
-(function() {
-    'use strict';
+const fs = require('fs');
 
-    function injectDynamics() {
-        // Prevent Node.js / Server-side build environments from throwing reference errors
-        if (typeof window === 'undefined' || typeof document === 'undefined') {
-            return;
-        }
+module.exports = function injectDynamics() {
+  const htmlFiles = fs.readdirSync('./').filter(file => file.endsWith('.html'));
 
-        // 1. Ensure viewport-fit=cover is present for edge-to-edge / status bar extension
-        let viewportMeta = document.querySelector('meta[name="viewport"]');
-        if (!viewportMeta) {
-            viewportMeta = document.createElement('meta');
-            viewportMeta.name = 'viewport';
-            document.head.appendChild(viewportMeta);
-        }
-        
-        const desiredViewport = 'width=device-width, initial-scale=1.0, viewport-fit=cover';
-        if (viewportMeta.content !== desiredViewport) {
-            viewportMeta.content = desiredViewport;
-        }
+  const now = new Date();
+  // Using your original trusted date/time styling configuration
+  const buildTimeString = now.toLocaleString('en-US', {
+    timeZone: 'Asia/Manila',
+    dateStyle: 'medium',
+    timeStyle: 'medium',
+    hour12: true
+  }) + ' PST';
 
-        // 2. Inject dynamic safe-area and full-screen UI handling styles
-        const styleId = 'mobirise-pwa-fullscreen-fix';
-        let styleTag = document.getElementById(styleId);
-        
-        if (!styleTag) {
-            styleTag = document.createElement('style');
-            styleTag.id = styleId;
-            document.head.appendChild(styleTag);
-        }
+  htmlFiles.forEach(file => {
+    let content = fs.readFileSync(file, 'utf8');
 
-        styleTag.innerHTML = `
-            /* Allow the app to bleed behind Android status and navigation bars */
-            html, body {
-                margin: 0;
-                padding: 0;
-                width: 100%;
-                min-height: 100vh;
-                box-sizing: border-box;
-            }
-
-            /* Pad top navigation elements so content doesn't crash into the status bar */
-            body > section:first-of-type, 
-            .cid-nav, 
-            nav.navbar, 
-            .navbar-fixed-top {
-                padding-top: env(safe-area-inset-top, 0px) !important;
-            }
-
-            /* Ensure bottom fixed footers clear the gesture/navigation bar */
-            .mbr-section-footer, 
-            footer, 
-            .cid-footer {
-                padding-bottom: env(safe-area-inset-bottom, 0px) !important;
-            }
-        `;
-
-        console.log("PWA Edge-to-Edge & Status Bar UI injection applied successfully.");
+    // 1. Inject Web App Manifest link into <head>
+    if (!content.includes('rel="manifest"') && !content.includes('href="manifest.json"')) {
+      content = content.replace(/<\/head>/i, '  <link rel="manifest" href="manifest.json">\n</head>');
     }
 
-    // Export for CommonJS (Node.js build pipeline) if applicable
-    if (typeof module !== 'undefined' && module.exports) {
-        module.exports = injectDynamics;
+    // 2. Inject sw-register.js script right before </body>
+    if (!content.includes('sw-register.js')) {
+      content = content.replace(/<\/body>/i, '  <script src="sw-register.js"></script>\n</body>');
     }
 
-    // Auto-run if loaded directly in a browser context
-    if (typeof window !== 'undefined') {
-        if (document.readyState === 'loading') {
-            document.addEventListener('DOMContentLoaded', injectDynamics);
-        } else {
-            injectDynamics();
-        }
-    }
-})();
+    // 3. Match your old NUL placeholders (supporting both NUL1/NULL1 and NUL2/NULL2 for safety)
+    content = content.replace(/NULL1|NUL1/g, `<span class="site-last-updated" style="font:inherit; color:inherit;">${buildTimeString}</span>`);
+    
+    const liveClockHtml = '<span class="pst-live-clock" style="font:inherit; color:inherit;"><span id="live-clock">Loading clock...</span></span>' +
+    '<script>' +
+    '(function() {' +
+    '  function updateClock() {' +
+    '    const now = new Date();' +
+    '    const timeStr = now.toLocaleString("en-US", { timeZone: "Asia/Manila", dateStyle: "medium", timeStyle: "medium", hour12: true }) + " PST";' +
+    '    const el = document.getElementById("live-clock");' +
+    '    if (el) el.innerHTML = timeStr;' +
+    '  }' +
+    '  setInterval(updateClock, 1000);' +
+    '  updateClock();' +
+    '})();' +
+    '</script>';
+
+    content = content.replace(/NULL2|NUL2/g, liveClockHtml);
+
+    fs.writeFileSync(file, content, 'utf8');
+  });
+  console.log('Dynamics injected successfully using the stable dateStyle configuration.');
+};
