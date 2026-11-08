@@ -1,14 +1,27 @@
 /**
- * Rorabina Fluid Animated Header Script
- * Features smooth crossfade transitions, centered alignment, and slower reading cadence.
+ * Rorabina Scoped Animated Header Script
+ * Applies 4rem styling, centering, and fluid crossfade exclusively to the homepage hero title.
  */
 document.addEventListener("DOMContentLoaded", function () {
+    // Only run on the homepage
+    const path = window.location.pathname;
+    if (!path.endsWith('index.html') && path !== '/' && path !== '') return;
+
+    // Target specifically the homepage hero title
     const headerElement = document.querySelector(".mbr-section-title");
     if (!headerElement) return;
 
-    // Ensure fluid opacity transitions and center alignment are applied
+    // Apply styles directly and exclusively to this hero element
+    headerElement.style.fontSize = "4rem";
+    headerElement.style.lineHeight = "1.25";
     headerElement.style.textAlign = "center";
+    headerElement.style.width = "100%";
     headerElement.style.transition = "opacity 0.4s ease-in-out";
+
+    // Responsive mobile adjustment
+    if (window.innerWidth <= 768) {
+        headerElement.style.fontSize = "2.5rem";
+    }
 
     const sentence1 = [
         { text: "A central space", bold: true },
@@ -43,19 +56,15 @@ document.addEventListener("DOMContentLoaded", function () {
         const activeSentence = currentSentenceIndex === 0 ? sentence1 : sentence2;
 
         if (currentChunkIndex < activeSentence.length) {
-            // Fluid crossfade: dip opacity slightly before updating the chunk
             headerElement.style.opacity = "0.3";
             setTimeout(() => {
                 headerElement.innerHTML = renderSentence(activeSentence, currentChunkIndex);
                 headerElement.style.opacity = "1";
                 currentChunkIndex++;
-                // Slower timing (1400ms per step) for comfortable reading
                 setTimeout(runAnimation, 1400);
             }, 250);
         } else {
-            // Hold the fully completed sentence longer on screen (4500ms)
             setTimeout(() => {
-                // Smooth fade out before switching to the next sentence
                 headerElement.style.opacity = "0";
                 setTimeout(() => {
                     currentChunkIndex = 0;
@@ -68,7 +77,6 @@ document.addEventListener("DOMContentLoaded", function () {
         }
     }
 
-    // Initialize first chunk and start loop
     headerElement.innerHTML = renderSentence(sentence1, 0);
     headerElement.style.opacity = "1";
     currentChunkIndex = 1;
