@@ -1,7 +1,7 @@
 /**
  * Rorabina Precision Animated Header Script
- * - Places the animated title in the dead center (vertical & horizontal).
- * - Leaves the bottom timestamp untouched in its natural flow.
+ * - Neutralizes Mobirise table-cell bottom alignment to allow true vertical and horizontal centering.
+ * - Pins the timestamp independently at the absolute bottom.
  * - Applies 4.0 font size ONLY to the homepage hero title, leaving all other site titles at 2.5.
  * - Granular word fade animation with full crossfade between sentence loops.
  */
@@ -17,16 +17,24 @@ document.addEventListener("DOMContentLoaded", function () {
     const heroSection = headerElement.closest('section');
     if (!heroSection) return;
 
-    // Inject clean CSS for dead-center title while leaving the timestamp untouched
+    // Inject clean CSS to override Mobirise table-cell constraints and achieve true centering
     if (!document.getElementById("rorabina-layout-fix-style")) {
         const style = document.createElement("style");
         style.id = "rorabina-layout-fix-style";
         style.innerHTML = `
-            /* Ensure hero section acts as positioning anchor */
+            /* Ensure hero section acts as a full-height positioning anchor */
             section:first-of-type {
                 position: relative !important;
-                min-height: 85vh !important;
+                min-height: 100vh !important;
                 box-sizing: border-box !important;
+            }
+
+            /* Neutralize Mobirise table cell vertical alignment */
+            section:first-of-type .mbr-table,
+            section:first-of-type .mbr-table-cell {
+                display: block !important;
+                height: auto !important;
+                vertical-align: baseline !important;
             }
 
             /* Dead-center positioning exclusively for the animated title */
@@ -35,7 +43,7 @@ document.addEventListener("DOMContentLoaded", function () {
                 line-height: 1.25 !important;
                 text-align: center !important;
                 position: absolute !important;
-                top: 48% !important;
+                top: 50% !important;
                 left: 50% !important;
                 transform: translate(-50%, -50%) !important;
                 width: 90% !important;
@@ -45,11 +53,23 @@ document.addEventListener("DOMContentLoaded", function () {
                 transition: opacity 0.5s ease-in-out !important;
             }
 
+            /* Pin the timestamp container independently to the bottom */
+            section:first-of-type .site-last-updated,
+            section:first-of-type div:has(.site-last-updated),
+            section:first-of-type .mbr-section__container:last-child {
+                position: absolute !important;
+                bottom: 25px !important;
+                left: 50% !important;
+                transform: translateX(-50%) !important;
+                width: 100% !important;
+                text-align: center !important;
+                z-index: 5 !important;
+            }
+
             /* Responsive mobile adjustment */
             @media (max-width: 768px) {
                 section:first-of-type .mbr-section-title {
                     font-size: 2.5rem !important;
-                    top: 45% !important;
                 }
             }
 
