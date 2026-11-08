@@ -1,8 +1,8 @@
 /**
  * Rorabina Precision Animated Header Script
- * - Neutralizes Mobirise table-cell bottom alignment to allow true vertical and horizontal centering.
- * - Pins the timestamp independently at the absolute bottom.
- * - Applies 4.0 font size ONLY to the homepage hero title, leaving all other site titles at 2.5.
+ * - Keeps the animated title dead-centered (vertical and horizontal) at 4.0 font size.
+ * - Pins the smaller text/timestamp independently to the absolute bottom.
+ * - Leaves all other site titles untouched at 2.5.
  * - Granular word fade animation with full crossfade between sentence loops.
  */
 document.addEventListener("DOMContentLoaded", function () {
@@ -17,7 +17,7 @@ document.addEventListener("DOMContentLoaded", function () {
     const heroSection = headerElement.closest('section');
     if (!heroSection) return;
 
-    // Inject clean CSS to override Mobirise table-cell constraints and achieve true centering
+    // Inject clean CSS for independent positioning (centered title, bottom text)
     if (!document.getElementById("rorabina-layout-fix-style")) {
         const style = document.createElement("style");
         style.id = "rorabina-layout-fix-style";
@@ -29,15 +29,16 @@ document.addEventListener("DOMContentLoaded", function () {
                 box-sizing: border-box !important;
             }
 
-            /* Neutralize Mobirise table cell vertical alignment */
+            /* Neutralize Mobirise table cell constraints so absolute positioning works reliably */
             section:first-of-type .mbr-table,
             section:first-of-type .mbr-table-cell {
                 display: block !important;
-                height: auto !important;
+                height: 100% !important;
+                position: relative !important;
                 vertical-align: baseline !important;
             }
 
-            /* Dead-center positioning exclusively for the animated title */
+            /* Dead-center positioning exclusively for the animated title (title 2) */
             section:first-of-type .mbr-section-title {
                 font-size: 4rem !important;
                 line-height: 1.25 !important;
@@ -53,12 +54,13 @@ document.addEventListener("DOMContentLoaded", function () {
                 transition: opacity 0.5s ease-in-out !important;
             }
 
-            /* Pin the timestamp container independently to the bottom */
+            /* Pin the smaller text/timestamp (tagged as text) independently to the bottom */
+            section:first-of-type .mbr-section-text,
             section:first-of-type .site-last-updated,
             section:first-of-type div:has(.site-last-updated),
             section:first-of-type .mbr-section__container:last-child {
                 position: absolute !important;
-                bottom: 25px !important;
+                bottom: 30px !important;
                 left: 50% !important;
                 transform: translateX(-50%) !important;
                 width: 100% !important;
