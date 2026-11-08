@@ -4,7 +4,6 @@ module.exports = function injectDynamics() {
   const htmlFiles = fs.readdirSync('./').filter(file => file.endsWith('.html'));
   const now = new Date();
   
-  // Build time string for NULL1 using standard medium date style (shortened month)
   const buildTimeString = now.toLocaleString('en-US', { timeZone: 'Asia/Manila', dateStyle: 'medium', timeStyle: 'medium', hour12: true }) + ' PST';
 
   htmlFiles.forEach(file => {
@@ -15,36 +14,20 @@ module.exports = function injectDynamics() {
       content = content.replace(/<\/head>/i, '  <link rel="manifest" href="manifest.json">\n</head>');
     }
 
-    // 2. Inject CSS styling override for 4rem header font size into <head>
-    if (!content.includes('rorabina-dynamic-styles')) {
-      const dynamicStyles = '  <style id="rorabina-dynamic-styles">\n' +
-                            '    .mbr-section-title {\n' +
-                            '      font-size: 4rem !important;\n' +
-                            '      line-height: 1.25;\n' +
-                            '    }\n' +
-                            '    @media (max-width: 768px) {\n' +
-                            '      .mbr-section-title {\n' +
-                            '        font-size: 2.5rem !important;\n' +
-                            '      }\n' +
-                            '    }\n' +
-                            '  </style>\n';
-      content = content.replace(/<\/head>/i, dynamicStyles + '</head>');
-    }
-
-    // 3. Inject sw-register.js script right before </body>
+    // 2. Inject sw-register.js script right before </body>
     if (!content.includes('sw-register.js')) {
       content = content.replace(/<\/body>/i, '  <script src="sw-register.js"></script>\n</body>');
     }
 
-    // 4. Inject animated-header.js script right before </body>
+    // 3. Inject animated-header.js script right before </body>
     if (!content.includes('animated-header.js')) {
       content = content.replace(/<\/body>/i, '  <script src="animated-header.js"></script>\n</body>');
     }
 
-    // 5. Replace NULL1 / NUL1 with build time
+    // 4. Replace NULL1 / NUL1 with build time
     content = content.replace(/NULL1|NUL1/g, `<span class="site-last-updated" style="font:inherit; color:inherit;">${buildTimeString}</span>`);
 
-    // 6. Replace NULL2 / NUL2 with live clock using standard medium style
+    // 5. Replace NULL2 / NUL2 with live clock
     const liveClockHtml = '<span class="pst-live-clock" style="font:inherit; color:inherit;"><span id="live-clock">Loading clock...</span></span>' +
       '<script>' +
       '(function() {' +
@@ -60,7 +43,7 @@ module.exports = function injectDynamics() {
       '</script>';
     content = content.replace(/NULL2|NUL2/g, liveClockHtml);
 
-    // 7. Replace NULL3 / NUL3 with live countdown targeting March 1, 2028, 10:00:00 AM UTC+8
+    // 6. Replace NULL3 / NUL3 with live countdown
     const targetDate = new Date('2028-03-01T10:00:00+08:00').getTime();
     const countdownHtml = '<span class="target-countdown" style="font:inherit; color:inherit;"><span id="live-countdown">Calculating countdown...</span></span>' +
       '<script>' +
@@ -89,5 +72,5 @@ module.exports = function injectDynamics() {
     fs.writeFileSync(file, content, 'utf8');
   });
 
-  console.log('Dynamics, clock, countdown, header styles, and animation script injected successfully.');
+  console.log('Dynamics, clock, countdown, and animation script injected successfully.');
 };
