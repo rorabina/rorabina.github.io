@@ -1,21 +1,24 @@
 /**
  * Rorabina Precision Animated Header Script
- * - Scoped exclusively to the homepage hero title.
- * - Forces true vertical and horizontal centering inside the hero box.
- * - Animates ONLY newly added words/chunks while keeping previous text solid.
- * - Full crossfade transition only between sentence loops.
+ * - Scoped exclusively to the homepage hero section.
+ * - Forces true vertical and horizontal centering of the hero box.
+ * - Applies 4.0 font size ONLY to the hero title, leaving all other site titles at 2.5.
+ * - Animates ONLY newly added words with granular fade while keeping previous text solid.
+ * - Full block crossfade transition only between sentence loops.
  */
 document.addEventListener("DOMContentLoaded", function () {
-    // Ensure this only runs on the homepage
+    // Strict homepage check
     const path = window.location.pathname;
     if (!path.endsWith('index.html') && path !== '/' && path !== '') return;
 
-    // Target ONLY the top hero section's title to avoid affecting other sections
-    const heroSection = document.querySelector('section.header1, section[id*="header"], .mbr-section--hero, section:first-of-type');
-    const headerElement = heroSection ? heroSection.querySelector(".mbr-section-title") : document.querySelector(".mbr-section-title");
+    // Target ONLY the top hero section (first section of the homepage)
+    const heroSection = document.querySelector('section:first-of-type');
+    if (!heroSection) return;
+
+    const headerElement = heroSection.querySelector('.mbr-section-title, h1, h2, .display-2');
     if (!headerElement) return;
 
-    // Apply 4rem styling and smooth transition properties
+    // Apply 4rem size, centering, and smooth transition properties exclusively to the hero title
     headerElement.style.fontSize = "4rem";
     headerElement.style.lineHeight = "1.25";
     headerElement.style.textAlign = "center";
@@ -23,15 +26,20 @@ document.addEventListener("DOMContentLoaded", function () {
     headerElement.style.display = "block";
     headerElement.style.transition = "opacity 0.5s ease-in-out";
 
-    // Force true container-level centering (vertical & horizontal) inside the Mobirise box
-    const targetContainer = headerElement.closest('.container, .row, .mbr-table-cell, div');
-    if (targetContainer) {
-        targetContainer.style.textAlign = "center";
-        targetContainer.style.display = "flex";
-        targetContainer.style.flexDirection = "column";
-        targetContainer.style.justifyContent = "center";
-        targetContainer.style.alignItems = "center";
-        targetContainer.style.width = "100%";
+    // Force true container-level vertical & horizontal centering inside the Mobirise hero box
+    heroSection.style.display = "flex";
+    heroSection.style.flexDirection = "column";
+    heroSection.style.justifyContent = "center";
+    heroSection.style.alignItems = "center";
+
+    const container = heroSection.querySelector('.container, .row, .mbr-table-cell, .mbr-box');
+    if (container) {
+        container.style.display = "flex";
+        container.style.flexDirection = "column";
+        container.style.justifyContent = "center";
+        container.style.alignItems = "center";
+        container.style.width = "100%";
+        container.style.verticalAlign = "middle";
     }
 
     // Responsive mobile font adjustment
