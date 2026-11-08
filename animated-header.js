@@ -1,86 +1,69 @@
 /**
  * Rorabina Precision Animated Header Script
- * - Targets exclusively the homepage hero section title.
- * - Uses robust Flexbox layout to keep the animated title dead-centered and the timestamp pinned at the bottom.
- * - Applies 4.0 font size ONLY to the hero title, leaving all other site titles at 2.5.
- * - Animates newly added words with granular fade while keeping previous text solid.
- * - Full block crossfade transition only between sentence loops.
+ * - Injects robust CSS for dead-center title positioning and bottom-pinned timestamp.
+ * - Applies 4.0 font size ONLY to the homepage hero title, leaving all other site titles at 2.5.
+ * - Granular word fade animation with full crossfade between sentence loops.
  */
 document.addEventListener("DOMContentLoaded", function () {
     // Strict homepage check
     const path = window.location.pathname;
     if (!path.endsWith('index.html') && path !== '/' && path !== '') return;
 
-    // Target the main header title directly
+    // Target the main header title
     const headerElement = document.querySelector(".mbr-section-title");
     if (!headerElement) return;
 
     const heroSection = headerElement.closest('section');
     if (!heroSection) return;
 
-    // Apply clean flexbox to the hero section
-    heroSection.style.cssText = `
-        display: flex !important;
-        flex-direction: column !important;
-        justify-content: center !important;
-        align-items: center !important;
-        min-height: 80vh !important;
-        position: relative !important;
-        box-sizing: border-box !important;
-    `;
-
-    // Target Mobirise inner wrapper/table-cell to act as a flex container
-    const innerContainer = heroSection.querySelector('.container, .row, .mbr-table-cell, .mbr-box') || heroSection;
-    innerContainer.style.cssText += `
-        display: flex !important;
-        flex-direction: column !important;
-        justify-content: space-between !important;
-        align-items: center !important;
-        width: 100% !important;
-        height: 100% !important;
-        min-height: 60vh !important;
-        text-align: center !important;
-    `;
-
-    // Center the animated title vertically and horizontally using auto margins
-    headerElement.style.cssText = `
-        font-size: 4rem !important;
-        line-height: 1.25 !important;
-        text-align: center !important;
-        width: 100% !important;
-        display: block !important;
-        margin: auto auto !important;
-        transition: opacity 0.5s ease-in-out !important;
-        z-index: 2 !important;
-    `;
-
-    // Find the timestamp/metadata element and push it cleanly to the bottom
-    const allElements = heroSection.querySelectorAll('*');
-    allElements.forEach(el => {
-        if (el !== headerElement && !headerElement.contains(el)) {
-            if (el.textContent && (el.textContent.includes('Site Last Updated') || el.textContent.includes('PST'))) {
-                el.style.cssText += `
-                    margin-top: auto !important;
-                    margin-bottom: 10px !important;
-                    display: block !important;
-                    text-align: center !important;
-                    width: 100% !important;
-                    z-index: 2 !important;
-                `;
-            }
-        }
-    });
-
-    // Responsive mobile font adjustment
-    if (window.innerWidth <= 768) {
-        headerElement.style.fontSize = "2.5rem !important";
-    }
-
-    // Inject smooth fade-in keyframes for newly added words only
-    if (!document.getElementById("rorabina-word-fade-style")) {
+    // Inject rock-solid CSS to handle positioning cleanly without JS layout fighting
+    if (!document.getElementById("rorabina-layout-fix-style")) {
         const style = document.createElement("style");
-        style.id = "rorabina-word-fade-style";
+        style.id = "rorabina-layout-fix-style";
         style.innerHTML = `
+            /* Ensure hero section acts as positioning anchor */
+            section:first-of-type {
+                position: relative !important;
+                min-height: 90vh !important;
+                box-sizing: border-box !important;
+            }
+
+            /* Dead-center positioning for the animated title */
+            section:first-of-type .mbr-section-title {
+                font-size: 4rem !important;
+                line-height: 1.25 !important;
+                text-align: center !important;
+                position: absolute !important;
+                top: 50% !important;
+                left: 50% !important;
+                transform: translate(-50%, -50%) !important;
+                width: 90% !important;
+                max-width: 1100px !important;
+                margin: 0 !important;
+                z-index: 5 !important;
+                transition: opacity 0.5s ease-in-out !important;
+            }
+
+            /* Pin timestamp container neatly to the bottom */
+            section:first-of-type .mbr-section__container:last-child,
+            section:first-of-type div:has(.site-last-updated) {
+                position: absolute !important;
+                bottom: 25px !important;
+                left: 50% !important;
+                transform: translateX(-50%) !important;
+                width: 100% !important;
+                text-align: center !important;
+                z-index: 5 !important;
+            }
+
+            /* Responsive mobile adjustment */
+            @media (max-width: 768px) {
+                section:first-of-type .mbr-section-title {
+                    font-size: 2.5rem !important;
+                }
+            }
+
+            /* Granular word fade animation */
             @keyframes fadeInNewWord {
                 from { opacity: 0; transform: translateY(4px); }
                 to { opacity: 1; transform: translateY(0); }
@@ -129,12 +112,10 @@ document.addEventListener("DOMContentLoaded", function () {
         const activeSentence = currentSentenceIndex === 0 ? sentence1 : sentence2;
 
         if (currentChunkIndex < activeSentence.length) {
-            // Append next chunk with only the new word fading in
             headerElement.innerHTML = renderSentenceWithGranularFade(activeSentence, currentChunkIndex);
             currentChunkIndex++;
-            setTimeout(runAnimation, 1400); // Timing between chunks
+            setTimeout(runAnimation, 1400);
         } else {
-            // Full sentence completed: hold on screen, then crossfade entire header to next sentence
             setTimeout(() => {
                 headerElement.style.opacity = "0"; // Full block fade out
                 setTimeout(() => {
@@ -146,8 +127,8 @@ document.addEventListener("DOMContentLoaded", function () {
                     headerElement.style.opacity = "1"; // Full block fade in
                     currentChunkIndex = 1;
                     setTimeout(runAnimation, 1400);
-                }, 500); // Fade duration
-            }, 4500); // Hold time for full sentence
+                }, 500);
+            }, 4500);
         }
     }
 
