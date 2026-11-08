@@ -1,7 +1,7 @@
 /**
  * Rorabina Precision Animated Header Script
- * - Leaves the animated title (title 2) completely untouched at its default Mobirise position and font size.
- * - Targets ONLY the exact timestamp element and pins it to the bottom.
+ * - Leaves Title 2 completely untouched at its Mobirise-configured position and default font size.
+ * - Targets ONLY the exact timestamp element and pins it to the bottom, centered horizontally.
  * - Granular word fade animation with full crossfade between sentence loops.
  */
 document.addEventListener("DOMContentLoaded", function () {
@@ -16,7 +16,7 @@ document.addEventListener("DOMContentLoaded", function () {
     const heroSection = headerElement.closest('section');
     if (!heroSection) return;
 
-    // Ensure hero section acts as a positioning anchor
+    // Ensure hero section acts as a positioning anchor for the bottom text
     heroSection.style.position = 'relative';
 
     // Inject CSS for the granular word fade animation
@@ -36,22 +36,24 @@ document.addEventListener("DOMContentLoaded", function () {
         document.head.appendChild(style);
     }
 
-    // Pin ONLY the specific timestamp element to the bottom after window load
+    // Pin ONLY the timestamp element itself to the bottom after window load (leaving title untouched)
     window.addEventListener('load', function () {
         const allElements = heroSection.querySelectorAll('p, div, span');
         allElements.forEach(el => {
-            // Match specifically the element holding the timestamp text without affecting shared containers
-            if (el.textContent && (el.textContent.includes('Site Last Updated') || el.textContent.includes('Rabina Standard Time')) && el.children.length <= 2) {
-                el.style.cssText = `
-                    position: absolute !important;
-                    bottom: 30px !important;
-                    left: 50% !important;
-                    transform: translateX(-50%) !important;
-                    width: 100% !important;
-                    text-align: center !important;
-                    z-index: 5 !important;
-                    margin: 0 !important;
-                `;
+            if (el.textContent && (el.textContent.includes('Site Last Updated') || el.textContent.includes('Rabina Standard Time'))) {
+                // Ensure we only style the element if it does not contain the title
+                if (!el.contains(headerElement) && el.children.length <= 3) {
+                    el.style.cssText = `
+                        position: absolute !important;
+                        bottom: 30px !important;
+                        left: 50% !important;
+                        transform: translateX(-50%) !important;
+                        width: 100% !important;
+                        text-align: center !important;
+                        z-index: 5 !important;
+                        margin: 0 !important;
+                    `;
+                }
             }
         });
     });
