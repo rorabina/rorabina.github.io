@@ -93,7 +93,7 @@ document.addEventListener("DOMContentLoaded", function () {
     ];
 
     const sentence2 = [
-        { text: "Exploring design, ", bold: false },
+        { text: "Exploring design, ", bold: true },
         { text: "technology, ", bold: false },
         { text: "and the big picture.", bold: false }
     ];
