@@ -1,7 +1,7 @@
 /**
  * Rorabina Precision Animated Header Script
- * - Keeps the animated title at its default font size, centered vertically and horizontally.
- * - Uses JavaScript to dynamically locate the timestamp/text element and pin it independently to the bottom.
+ * - Keeps the animated title (title 2) exactly where Mobirise placed it at its default font size.
+ * - Pins the smaller text/timestamp independently to the bottom.
  * - Granular word fade animation with full crossfade between sentence loops.
  */
 document.addEventListener("DOMContentLoaded", function () {
@@ -16,42 +16,14 @@ document.addEventListener("DOMContentLoaded", function () {
     const heroSection = headerElement.closest('section');
     if (!heroSection) return;
 
-    // Inject clean CSS for section positioning and dead-center title (default font size)
+    // Ensure hero section acts as a positioning anchor for the bottom text
+    heroSection.style.position = 'relative';
+
+    // Inject CSS solely for the granular word fade animation
     if (!document.getElementById("rorabina-layout-fix-style")) {
         const style = document.createElement("style");
         style.id = "rorabina-layout-fix-style";
         style.innerHTML = `
-            /* Ensure hero section acts as a positioning anchor */
-            section:first-of-type {
-                position: relative !important;
-                min-height: 100vh !important;
-                box-sizing: border-box !important;
-            }
-
-            /* Neutralize Mobirise table cell constraints so absolute positioning works reliably */
-            section:first-of-type .mbr-table,
-            section:first-of-type .mbr-table-cell {
-                display: block !important;
-                height: 100% !important;
-                position: relative !important;
-                vertical-align: baseline !important;
-            }
-
-            /* Dead-center positioning for the animated title (default font size preserved) */
-            section:first-of-type .mbr-section-title {
-                text-align: center !important;
-                position: absolute !important;
-                top: 50% !important;
-                left: 50% !important;
-                transform: translate(-50%, -50%) !important;
-                width: 90% !important;
-                max-width: 1100px !important;
-                margin: 0 !important;
-                z-index: 5 !important;
-                transition: opacity 0.5s ease-in-out !important;
-            }
-
-            /* Granular word fade animation */
             @keyframes fadeInNewWord {
                 from { opacity: 0; transform: translateY(4px); }
                 to { opacity: 1; transform: translateY(0); }
@@ -64,7 +36,7 @@ document.addEventListener("DOMContentLoaded", function () {
         document.head.appendChild(style);
     }
 
-    // Dynamically find and pin the timestamp/text block to the bottom via JavaScript
+    // Dynamically find and pin the timestamp/text block to the bottom via JavaScript, leaving the title untouched
     const allElements = heroSection.querySelectorAll('*');
     allElements.forEach(el => {
         if (el.textContent && (el.textContent.includes('Site Last Updated') || el.textContent.includes('Rabina Standard Time'))) {
