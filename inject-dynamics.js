@@ -19,8 +19,8 @@ module.exports = function injectDynamics() {
       content = content.replace(/<\/body>/i, '  <script src="sw-register.js"></script>\n</body>');
     }
 
-    // 3. Inject animated-header.js script right before </body>
-    if (!content.includes('animated-header.js')) {
+    // 3. Inject animated-header.js ONLY into index.html homepage
+    if (file === 'index.html' && !content.includes('animated-header.js')) {
       content = content.replace(/<\/body>/i, '  <script src="animated-header.js"></script>\n</body>');
     }
 
