@@ -1,9 +1,9 @@
 /**
  * Rorabina Precision Animated Header Script
  * - Scoped exclusively to the homepage hero section.
- * - Forces true vertical and horizontal centering of the hero box.
+ * - Dismantles Mobirise bottom-alignment and forces TRUE vertical & horizontal centering.
  * - Applies 4.0 font size ONLY to the hero title, leaving all other site titles at 2.5.
- * - Animates ONLY newly added words with granular fade while keeping previous text solid.
+ * - Animates newly added words with granular fade while keeping previous text solid.
  * - Full block crossfade transition only between sentence loops.
  */
 document.addEventListener("DOMContentLoaded", function () {
@@ -15,36 +15,49 @@ document.addEventListener("DOMContentLoaded", function () {
     const heroSection = document.querySelector('section:first-of-type');
     if (!heroSection) return;
 
+    // Force heroSection to break bottom positioning and center vertically & horizontally
+    heroSection.style.cssText = `
+        display: flex !important;
+        flex-direction: column !important;
+        justify-content: center !important;
+        align-items: center !important;
+        min-height: 80vh !important;
+        position: relative !important;
+    `;
+
+    // Strip or override internal Mobirise wrappers that enforce bottom/table alignment
+    const allWrappers = heroSection.querySelectorAll('div, .container, .row, .mbr-table, .mbr-table-cell, .mbr-box, .mbr-section__container');
+    allWrappers.forEach(el => {
+        el.style.cssText = `
+            display: flex !important;
+            flex-direction: column !important;
+            justify-content: center !important;
+            align-items: center !important;
+            text-align: center !important;
+            vertical-align: middle !important;
+            position: static !important;
+            width: 100% !important;
+            float: none !important;
+        `;
+    });
+
     const headerElement = heroSection.querySelector('.mbr-section-title, h1, h2, .display-2');
     if (!headerElement) return;
 
     // Apply 4rem size, centering, and smooth transition properties exclusively to the hero title
-    headerElement.style.fontSize = "4rem";
-    headerElement.style.lineHeight = "1.25";
-    headerElement.style.textAlign = "center";
-    headerElement.style.width = "100%";
-    headerElement.style.display = "block";
-    headerElement.style.transition = "opacity 0.5s ease-in-out";
-
-    // Force true container-level vertical & horizontal centering inside the Mobirise hero box
-    heroSection.style.display = "flex";
-    heroSection.style.flexDirection = "column";
-    heroSection.style.justifyContent = "center";
-    heroSection.style.alignItems = "center";
-
-    const container = heroSection.querySelector('.container, .row, .mbr-table-cell, .mbr-box');
-    if (container) {
-        container.style.display = "flex";
-        container.style.flexDirection = "column";
-        container.style.justifyContent = "center";
-        container.style.alignItems = "center";
-        container.style.width = "100%";
-        container.style.verticalAlign = "middle";
-    }
+    headerElement.style.cssText = `
+        font-size: 4rem !important;
+        line-height: 1.25 !important;
+        text-align: center !important;
+        width: 100% !important;
+        display: block !important;
+        margin: 0 auto !important;
+        transition: opacity 0.5s ease-in-out !important;
+    `;
 
     // Responsive mobile font adjustment
     if (window.innerWidth <= 768) {
-        headerElement.style.fontSize = "2.5rem";
+        headerElement.style.fontSize = "2.5rem !important";
     }
 
     // Inject smooth fade-in keyframes for newly added words only
@@ -122,9 +135,9 @@ document.addEventListener("DOMContentLoaded", function () {
         }
     }
 
-    // Initialize starting state
-    headerElement.innerHTML = sentence1[0].bold ? `<span style="font-weight: bold;">${sentence1[0].text}</span>` : sentence1[0].text;
+    // Initialize starting state immediately
+    currentSentenceIndex = 0;
+    currentChunkIndex = 0;
     headerElement.style.opacity = "1";
-    currentChunkIndex = 1;
-    setTimeout(runAnimation, 1400);
+    runAnimation();
 });
