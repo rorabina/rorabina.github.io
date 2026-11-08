@@ -1,7 +1,8 @@
 /**
  * Rorabina Precision Animated Header Script
- * - Keeps the animated title (title 2) exactly where Mobirise placed it at its default font size.
- * - Pins the smaller text/timestamp independently to the bottom.
+ * - Leaves the animated title (title 2) untouched at its default Mobirise position and font size.
+ * - Uses a MutationObserver to permanently lock the smaller text/timestamp at the bottom, 
+ *   preventing Mobirise scripts from overriding it on load/refresh.
  * - Granular word fade animation with full crossfade between sentence loops.
  */
 document.addEventListener("DOMContentLoaded", function () {
@@ -16,10 +17,10 @@ document.addEventListener("DOMContentLoaded", function () {
     const heroSection = headerElement.closest('section');
     if (!heroSection) return;
 
-    // Ensure hero section acts as a positioning anchor for the bottom text
+    // Ensure hero section acts as a positioning anchor
     heroSection.style.position = 'relative';
 
-    // Inject CSS solely for the granular word fade animation
+    // Inject CSS for the granular word fade animation
     if (!document.getElementById("rorabina-layout-fix-style")) {
         const style = document.createElement("style");
         style.id = "rorabina-layout-fix-style";
@@ -36,22 +37,31 @@ document.addEventListener("DOMContentLoaded", function () {
         document.head.appendChild(style);
     }
 
-    // Dynamically find and pin the timestamp/text block to the bottom via JavaScript, leaving the title untouched
-    const allElements = heroSection.querySelectorAll('*');
-    allElements.forEach(el => {
-        if (el.textContent && (el.textContent.includes('Site Last Updated') || el.textContent.includes('Rabina Standard Time'))) {
-            let targetBlock = el.closest('.mbr-section__container, p, div') || el;
-            targetBlock.style.cssText += `
-                position: absolute !important;
-                bottom: 30px !important;
-                left: 50% !important;
-                transform: translateX(-50%) !important;
-                width: 100% !important;
-                text-align: center !important;
-                z-index: 5 !important;
-            `;
-        }
+    // Function to pin the timestamp to the bottom persistently
+    function pinTimestampToBottom() {
+        const allElements = heroSection.querySelectorAll('*');
+        allElements.forEach(el => {
+            if (el.textContent && (el.textContent.includes('Site Last Updated') || el.textContent.includes('Rabina Standard Time'))) {
+                let targetBlock = el.closest('.mbr-section__container, p, div') || el;
+                targetBlock.style.cssText = `
+                    position: absolute !important;
+                    bottom: 30px !important;
+                    left: 50% !important;
+                    transform: translateX(-50%) !important;
+                    width: 100% !important;
+                    text-align: center !important;
+                    z-index: 5 !important;
+                `;
+            }
+        });
+    }
+
+    // Apply immediately and observe for any Mobirise re-renders
+    pinTimestampToBottom();
+    const observer = new MutationObserver(() => {
+        pinTimestampToBottom();
     });
+    observer.observe(heroSection, { childList: true, subtree: true, attributes: true, attributeFilter: ['style', 'class'] });
 
     const sentence1 = [
         { text: "A central space for ideas, ", bold: true },
