@@ -1,7 +1,7 @@
 /**
  * Rorabina Precision Animated Header Script
  * - Leaves Title 2 completely untouched at its Mobirise-configured position and default font size.
- * - Targets ONLY the exact timestamp element and pins it to the bottom, centered horizontally.
+ * - Sets the hero section height to 100vh relative so the timestamp anchors correctly at the bottom.
  * - Granular word fade animation with full crossfade between sentence loops.
  */
 document.addEventListener("DOMContentLoaded", function () {
@@ -16,13 +16,13 @@ document.addEventListener("DOMContentLoaded", function () {
     const heroSection = headerElement.closest('section');
     if (!heroSection) return;
 
-    // Ensure hero section acts as a positioning anchor for the bottom text
-    heroSection.style.position = 'relative';
+    // Force hero section to act as a full-height positioning anchor
+    heroSection.style.cssText += 'position: relative !important; min-height: 100vh !important; box-sizing: border-box !important;';
 
-    // Inject CSS for the granular word fade animation
-    if (!document.getElementById("rorabina-word-fade-style")) {
+    // Inject CSS for animation and bottom timestamp positioning
+    if (!document.getElementById("rorabina-layout-fix-style")) {
         const style = document.createElement("style");
-        style.id = "rorabina-word-fade-style";
+        style.id = "rorabina-layout-fix-style";
         style.innerHTML = `
             @keyframes fadeInNewWord {
                 from { opacity: 0; transform: translateY(4px); }
@@ -32,18 +32,31 @@ document.addEventListener("DOMContentLoaded", function () {
                 display: inline-block;
                 animation: fadeInNewWord 0.6s ease-out forwards;
             }
+
+            /* Pin the timestamp / smaller text to the absolute bottom center of the hero section */
+            section:first-of-type .site-last-updated,
+            section:first-of-type p:has(> .site-last-updated),
+            section:first-of-type div:has(> .site-last-updated) {
+                position: absolute !important;
+                bottom: 30px !important;
+                left: 50% !important;
+                transform: translateX(-50%) !important;
+                width: 100% !important;
+                text-align: center !important;
+                z-index: 5 !important;
+                margin: 0 !important;
+            }
         `;
         document.head.appendChild(style);
     }
 
-    // Pin ONLY the timestamp element itself to the bottom after window load (leaving title untouched)
+    // Fallback JS selector to ensure the timestamp element gets pinned securely after load
     window.addEventListener('load', function () {
         const allElements = heroSection.querySelectorAll('p, div, span');
         allElements.forEach(el => {
             if (el.textContent && (el.textContent.includes('Site Last Updated') || el.textContent.includes('Rabina Standard Time'))) {
-                // Ensure we only style the element if it does not contain the title
                 if (!el.contains(headerElement) && el.children.length <= 3) {
-                    el.style.cssText = `
+                    el.style.cssText += `
                         position: absolute !important;
                         bottom: 30px !important;
                         left: 50% !important;
