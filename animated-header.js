@@ -1,8 +1,7 @@
 /**
  * Rorabina Precision Animated Header Script
  * - Leaves the animated title (title 2) untouched at its default Mobirise position and font size.
- * - Uses a MutationObserver to permanently lock the smaller text/timestamp at the bottom, 
- *   preventing Mobirise scripts from overriding it on load/refresh.
+ * - Safely pins the smaller text/timestamp to the bottom once after full page load (no infinite loops).
  * - Granular word fade animation with full crossfade between sentence loops.
  */
 document.addEventListener("DOMContentLoaded", function () {
@@ -21,9 +20,9 @@ document.addEventListener("DOMContentLoaded", function () {
     heroSection.style.position = 'relative';
 
     // Inject CSS for the granular word fade animation
-    if (!document.getElementById("rorabina-layout-fix-style")) {
+    if (!document.getElementById("rorabina-word-fade-style")) {
         const style = document.createElement("style");
-        style.id = "rorabina-layout-fix-style";
+        style.id = "rorabina-word-fade-style";
         style.innerHTML = `
             @keyframes fadeInNewWord {
                 from { opacity: 0; transform: translateY(4px); }
@@ -37,8 +36,8 @@ document.addEventListener("DOMContentLoaded", function () {
         document.head.appendChild(style);
     }
 
-    // Function to pin the timestamp to the bottom persistently
-    function pinTimestampToBottom() {
+    // Pin the timestamp to the bottom safely after window load (prevents infinite loops & freezing)
+    window.addEventListener('load', function () {
         const allElements = heroSection.querySelectorAll('*');
         allElements.forEach(el => {
             if (el.textContent && (el.textContent.includes('Site Last Updated') || el.textContent.includes('Rabina Standard Time'))) {
@@ -54,14 +53,7 @@ document.addEventListener("DOMContentLoaded", function () {
                 `;
             }
         });
-    }
-
-    // Apply immediately and observe for any Mobirise re-renders
-    pinTimestampToBottom();
-    const observer = new MutationObserver(() => {
-        pinTimestampToBottom();
     });
-    observer.observe(heroSection, { childList: true, subtree: true, attributes: true, attributeFilter: ['style', 'class'] });
 
     const sentence1 = [
         { text: "A central space for ideas, ", bold: true },
