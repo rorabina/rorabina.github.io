@@ -1,7 +1,8 @@
 /**
  * Rorabina Precision Animated Header Script
  * - Targets exclusively the homepage hero section title.
- * - Restores natural Mobirise layout flow so the title and timestamp align correctly together.
+ * - Perfectly centers the animated title (vertical and horizontal center).
+ * - Pins the timestamp/metadata cleanly to the absolute bottom of the hero banner.
  * - Applies 4.0 font size ONLY to the hero title, leaving all other site titles at 2.5.
  * - Animates newly added words with granular fade while keeping previous text solid.
  * - Full block crossfade transition only between sentence loops.
@@ -15,16 +16,47 @@ document.addEventListener("DOMContentLoaded", function () {
     const headerElement = document.querySelector(".mbr-section-title");
     if (!headerElement) return;
 
-    // Apply 4rem size and centering cleanly without breaking parent container layout
+    const heroSection = headerElement.closest('section');
+    if (!heroSection) return;
+
+    // Set the hero section to relative positioning with a clean minimum height
+    heroSection.style.cssText = `
+        position: relative !important;
+        min-height: 80vh !important;
+    `;
+
+    // Position the animated title at the dead-center (vertical and horizontal)
     headerElement.style.cssText = `
+        position: absolute !important;
+        top: 50% !important;
+        left: 50% !important;
+        transform: translate(-50%, -50%) !important;
         font-size: 4rem !important;
         line-height: 1.25 !important;
         text-align: center !important;
-        width: 100% !important;
-        display: block !important;
-        margin: 0 auto 15px auto !important;
+        width: 90% !important;
+        max-width: 1000px !important;
         transition: opacity 0.5s ease-in-out !important;
+        z-index: 2 !important;
     `;
+
+    // Find and pin the timestamp/metadata element to the bottom center
+    const allElements = heroSection.querySelectorAll('*');
+    allElements.forEach(el => {
+        if (el !== headerElement && !headerElement.contains(el)) {
+            if (el.textContent && (el.textContent.includes('Site Last Updated') || el.textContent.includes('PST'))) {
+                el.style.cssText = `
+                    position: absolute !important;
+                    bottom: 25px !important;
+                    left: 50% !important;
+                    transform: translateX(-50%) !important;
+                    width: 100% !important;
+                    text-align: center !important;
+                    z-index: 2 !important;
+                `;
+            }
+        }
+    });
 
     // Responsive mobile font adjustment
     if (window.innerWidth <= 768) {
