@@ -1,6 +1,7 @@
 /**
  * Rorabina Precision Animated Header Script
- * - Injects robust CSS for dead-center title positioning and bottom-pinned timestamp.
+ * - Places the animated title in the dead center (vertical & horizontal).
+ * - Leaves the bottom timestamp untouched in its natural flow.
  * - Applies 4.0 font size ONLY to the homepage hero title, leaving all other site titles at 2.5.
  * - Granular word fade animation with full crossfade between sentence loops.
  */
@@ -16,7 +17,7 @@ document.addEventListener("DOMContentLoaded", function () {
     const heroSection = headerElement.closest('section');
     if (!heroSection) return;
 
-    // Inject rock-solid CSS to handle positioning cleanly without JS layout fighting
+    // Inject clean CSS for dead-center title while leaving the timestamp untouched
     if (!document.getElementById("rorabina-layout-fix-style")) {
         const style = document.createElement("style");
         style.id = "rorabina-layout-fix-style";
@@ -24,17 +25,17 @@ document.addEventListener("DOMContentLoaded", function () {
             /* Ensure hero section acts as positioning anchor */
             section:first-of-type {
                 position: relative !important;
-                min-height: 90vh !important;
+                min-height: 85vh !important;
                 box-sizing: border-box !important;
             }
 
-            /* Dead-center positioning for the animated title */
+            /* Dead-center positioning exclusively for the animated title */
             section:first-of-type .mbr-section-title {
                 font-size: 4rem !important;
                 line-height: 1.25 !important;
                 text-align: center !important;
                 position: absolute !important;
-                top: 50% !important;
+                top: 48% !important;
                 left: 50% !important;
                 transform: translate(-50%, -50%) !important;
                 width: 90% !important;
@@ -44,22 +45,11 @@ document.addEventListener("DOMContentLoaded", function () {
                 transition: opacity 0.5s ease-in-out !important;
             }
 
-            /* Pin timestamp container neatly to the bottom */
-            section:first-of-type .mbr-section__container:last-child,
-            section:first-of-type div:has(.site-last-updated) {
-                position: absolute !important;
-                bottom: 25px !important;
-                left: 50% !important;
-                transform: translateX(-50%) !important;
-                width: 100% !important;
-                text-align: center !important;
-                z-index: 5 !important;
-            }
-
             /* Responsive mobile adjustment */
             @media (max-width: 768px) {
                 section:first-of-type .mbr-section-title {
                     font-size: 2.5rem !important;
+                    top: 45% !important;
                 }
             }
 
