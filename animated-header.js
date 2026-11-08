@@ -1,7 +1,7 @@
 /**
  * Rorabina Precision Animated Header Script
  * - Leaves Title 2 completely untouched at its Mobirise-configured position and default font size.
- * - Dynamically detaches the timestamp element from its centered container and pins it to the bottom.
+ * - Dynamically detaches the timestamp element and positions it higher from the bottom to prevent mobile cutoff.
  * - Granular word fade animation with full crossfade between sentence loops.
  */
 document.addEventListener("DOMContentLoaded", function () {
@@ -36,7 +36,7 @@ document.addEventListener("DOMContentLoaded", function () {
         document.head.appendChild(style);
     }
 
-    // Move the timestamp element out of the centered container and pin it to the absolute bottom
+    // Move the timestamp element out of the centered container and pin it higher from the bottom
     window.addEventListener('load', function () {
         const allElements = heroSection.querySelectorAll('*');
         allElements.forEach(el => {
@@ -48,7 +48,7 @@ document.addEventListener("DOMContentLoaded", function () {
                         heroSection.appendChild(targetBlock);
                         targetBlock.style.cssText = `
                             position: absolute !important;
-                            bottom: 25px !important;
+                            bottom: 60px !important;
                             left: 50% !important;
                             transform: translateX(-50%) !important;
                             width: 100% !important;
