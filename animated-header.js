@@ -1,8 +1,7 @@
 /**
  * Rorabina Precision Animated Header Script
  * - Targets exclusively the homepage hero section title.
- * - Perfectly centers the animated title (vertical and horizontal center).
- * - Pins the timestamp/metadata cleanly to the absolute bottom of the hero banner.
+ * - Uses robust Flexbox layout to keep the animated title dead-centered and the timestamp pinned at the bottom.
  * - Applies 4.0 font size ONLY to the hero title, leaving all other site titles at 2.5.
  * - Animates newly added words with granular fade while keeping previous text solid.
  * - Full block crossfade transition only between sentence loops.
@@ -19,39 +18,53 @@ document.addEventListener("DOMContentLoaded", function () {
     const heroSection = headerElement.closest('section');
     if (!heroSection) return;
 
-    // Set the hero section to relative positioning with a clean minimum height
+    // Apply clean flexbox to the hero section
     heroSection.style.cssText = `
-        position: relative !important;
+        display: flex !important;
+        flex-direction: column !important;
+        justify-content: center !important;
+        align-items: center !important;
         min-height: 80vh !important;
+        position: relative !important;
+        box-sizing: border-box !important;
     `;
 
-    // Position the animated title at the dead-center (vertical and horizontal)
+    // Target Mobirise inner wrapper/table-cell to act as a flex container
+    const innerContainer = heroSection.querySelector('.container, .row, .mbr-table-cell, .mbr-box') || heroSection;
+    innerContainer.style.cssText += `
+        display: flex !important;
+        flex-direction: column !important;
+        justify-content: space-between !important;
+        align-items: center !important;
+        width: 100% !important;
+        height: 100% !important;
+        min-height: 60vh !important;
+        text-align: center !important;
+    `;
+
+    // Center the animated title vertically and horizontally using auto margins
     headerElement.style.cssText = `
-        position: absolute !important;
-        top: 50% !important;
-        left: 50% !important;
-        transform: translate(-50%, -50%) !important;
         font-size: 4rem !important;
         line-height: 1.25 !important;
         text-align: center !important;
-        width: 90% !important;
-        max-width: 1000px !important;
+        width: 100% !important;
+        display: block !important;
+        margin: auto auto !important;
         transition: opacity 0.5s ease-in-out !important;
         z-index: 2 !important;
     `;
 
-    // Find and pin the timestamp/metadata element to the bottom center
+    // Find the timestamp/metadata element and push it cleanly to the bottom
     const allElements = heroSection.querySelectorAll('*');
     allElements.forEach(el => {
         if (el !== headerElement && !headerElement.contains(el)) {
             if (el.textContent && (el.textContent.includes('Site Last Updated') || el.textContent.includes('PST'))) {
-                el.style.cssText = `
-                    position: absolute !important;
-                    bottom: 25px !important;
-                    left: 50% !important;
-                    transform: translateX(-50%) !important;
-                    width: 100% !important;
+                el.style.cssText += `
+                    margin-top: auto !important;
+                    margin-bottom: 10px !important;
+                    display: block !important;
                     text-align: center !important;
+                    width: 100% !important;
                     z-index: 2 !important;
                 `;
             }
