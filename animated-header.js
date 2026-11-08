@@ -1,7 +1,8 @@
 /**
  * Rorabina Precision Animated Header Script
  * - Targets the exact section containing the main header title (ignoring Mobirise watermarks).
- * - Forces true vertical (middle) and horizontal centering by overriding Mobirise table cells.
+ * - Centers the animated title vertically and horizontally in the middle of the banner.
+ * - Keeps the timestamp/metadata cleanly pinned at the bottom.
  * - Applies 4.0 font size ONLY to the hero title, leaving all other site titles at 2.5.
  * - Animates newly added words with granular fade while keeping previous text solid.
  * - Full block crossfade transition only between sentence loops.
@@ -18,42 +19,73 @@ document.addEventListener("DOMContentLoaded", function () {
     const heroSection = headerElement.closest('section');
     if (!heroSection) return;
 
-    // Force heroSection and its Mobirise table cells to center vertically and horizontally
+    // Force heroSection into a flex container with space-between to split title (middle) and timestamp (bottom)
     heroSection.style.cssText = `
-        display: block !important;
+        display: flex !important;
+        flex-direction: column !important;
+        justify-content: space-between !important;
+        align-items: center !important;
+        text-align: center !important;
+        min-height: 85vh !important;
         position: relative !important;
+        padding-top: 100px !important;
+        padding-bottom: 40px !important;
+        box-sizing: border-box !important;
     `;
 
-    // Specifically target Mobirise table cells to override default bottom vertical-alignment
+    // Clear conflicting Mobirise table cell formatting on inner wrappers
     const tableCells = heroSection.querySelectorAll('.mbr-table-cell');
     tableCells.forEach(cell => {
         cell.style.cssText = `
-            vertical-align: middle !important;
-            display: table-cell !important;
+            display: flex !important;
+            flex-direction: column !important;
+            justify-content: space-between !important;
+            align-items: center !important;
             text-align: center !important;
+            height: 100% !important;
+            width: 100% !important;
+            vertical-align: baseline !important;
         `;
     });
 
-    // Override internal wrappers to ensure center alignment
     const allWrappers = heroSection.querySelectorAll('div, .container, .row, .mbr-table, .mbr-box, .mbr-section__container');
     allWrappers.forEach(el => {
-        el.style.cssText += `
-            text-align: center !important;
-            margin-left: auto !important;
-            margin-right: auto !important;
-        `;
+        if (el !== headerElement) {
+            el.style.cssText += `
+                text-align: center !important;
+                margin-left: auto !important;
+                margin-right: auto !important;
+                width: 100% !important;
+            `;
+        }
     });
 
-    // Apply 4rem size, centering, and smooth transition properties exclusively to the hero title
+    // Center the title vertically in the middle of the flex column
     headerElement.style.cssText = `
         font-size: 4rem !important;
         line-height: 1.25 !important;
         text-align: center !important;
         width: 100% !important;
         display: block !important;
-        margin: 0 auto !important;
+        margin: auto auto !important;
         transition: opacity 0.5s ease-in-out !important;
     `;
+
+    // Find and push the metadata / timestamp element to the bottom
+    const metadataElements = heroSection.querySelectorAll('.site-last-updated, p, span');
+    metadataElements.forEach(el => {
+        if (el !== headerElement && !headerElement.contains(el)) {
+            if (el.textContent.includes('Site Last Updated') || el.textContent.includes('PST') || el.classList.contains('site-last-updated')) {
+                el.style.cssText = `
+                    margin-top: auto !important;
+                    margin-bottom: 0 !important;
+                    display: block !important;
+                    text-align: center !important;
+                    width: 100% !important;
+                `;
+            }
+        }
+    });
 
     // Responsive mobile font adjustment
     if (window.innerWidth <= 768) {
