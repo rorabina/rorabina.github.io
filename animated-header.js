@@ -1,7 +1,7 @@
 /**
  * Rorabina Precision Animated Header Script
- * - Leaves the animated title (title 2) untouched at its default Mobirise position and font size.
- * - Safely pins the smaller text/timestamp to the bottom once after full page load (no infinite loops).
+ * - Leaves the animated title (title 2) completely untouched at its default Mobirise position and font size.
+ * - Targets ONLY the exact timestamp element and pins it to the bottom.
  * - Granular word fade animation with full crossfade between sentence loops.
  */
 document.addEventListener("DOMContentLoaded", function () {
@@ -36,13 +36,13 @@ document.addEventListener("DOMContentLoaded", function () {
         document.head.appendChild(style);
     }
 
-    // Pin the timestamp to the bottom safely after window load (prevents infinite loops & freezing)
+    // Pin ONLY the specific timestamp element to the bottom after window load
     window.addEventListener('load', function () {
-        const allElements = heroSection.querySelectorAll('*');
+        const allElements = heroSection.querySelectorAll('p, div, span');
         allElements.forEach(el => {
-            if (el.textContent && (el.textContent.includes('Site Last Updated') || el.textContent.includes('Rabina Standard Time'))) {
-                let targetBlock = el.closest('.mbr-section__container, p, div') || el;
-                targetBlock.style.cssText = `
+            // Match specifically the element holding the timestamp text without affecting shared containers
+            if (el.textContent && (el.textContent.includes('Site Last Updated') || el.textContent.includes('Rabina Standard Time')) && el.children.length <= 2) {
+                el.style.cssText = `
                     position: absolute !important;
                     bottom: 30px !important;
                     left: 50% !important;
@@ -50,6 +50,7 @@ document.addEventListener("DOMContentLoaded", function () {
                     width: 100% !important;
                     text-align: center !important;
                     z-index: 5 !important;
+                    margin: 0 !important;
                 `;
             }
         });
