@@ -1,22 +1,26 @@
 /**
  * Rorabina Scoped Animated Header Script
- * Applies 4rem styling, centering, and fluid crossfade exclusively to the homepage hero title.
+ * Applies 4rem styling, full box centering, and fluid crossfade exclusively to the homepage hero title.
  */
 document.addEventListener("DOMContentLoaded", function () {
-    // Only run on the homepage
-    const path = window.location.pathname;
-    if (!path.endsWith('index.html') && path !== '/' && path !== '') return;
-
-    // Target specifically the homepage hero title
     const headerElement = document.querySelector(".mbr-section-title");
     if (!headerElement) return;
 
-    // Apply styles directly and exclusively to this hero element
+    // Apply styling and true centering to the title element
     headerElement.style.fontSize = "4rem";
     headerElement.style.lineHeight = "1.25";
     headerElement.style.textAlign = "center";
     headerElement.style.width = "100%";
+    headerElement.style.display = "block";
+    headerElement.style.marginLeft = "auto";
+    headerElement.style.marginRight = "auto";
     headerElement.style.transition = "opacity 0.4s ease-in-out";
+
+    // Also target Mobirise parent containers to force container-level centering
+    const parentContainer = headerElement.closest('.container, .row, .mbr-section__container, div');
+    if (parentContainer) {
+        parentContainer.style.textAlign = "center";
+    }
 
     // Responsive mobile adjustment
     if (window.innerWidth <= 768) {
