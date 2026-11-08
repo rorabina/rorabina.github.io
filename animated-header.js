@@ -1,7 +1,7 @@
 /**
  * Rorabina Precision Animated Header Script
  * - Targets the exact section containing the main header title (ignoring Mobirise watermarks).
- * - Forces true vertical and horizontal centering of the hero box.
+ * - Forces true vertical (middle) and horizontal centering by overriding Mobirise table cells.
  * - Applies 4.0 font size ONLY to the hero title, leaving all other site titles at 2.5.
  * - Animates newly added words with granular fade while keeping previous text solid.
  * - Full block crossfade transition only between sentence loops.
@@ -18,29 +18,29 @@ document.addEventListener("DOMContentLoaded", function () {
     const heroSection = headerElement.closest('section');
     if (!heroSection) return;
 
-    // Force heroSection to center vertically & horizontally
+    // Force heroSection and its Mobirise table cells to center vertically and horizontally
     heroSection.style.cssText = `
-        display: flex !important;
-        flex-direction: column !important;
-        justify-content: center !important;
-        align-items: center !important;
-        min-height: 80vh !important;
+        display: block !important;
         position: relative !important;
     `;
 
-    // Strip or override internal Mobirise wrappers inside the hero section only
-    const allWrappers = heroSection.querySelectorAll('div, .container, .row, .mbr-table, .mbr-table-cell, .mbr-box, .mbr-section__container');
-    allWrappers.forEach(el => {
-        el.style.cssText = `
-            display: flex !important;
-            flex-direction: column !important;
-            justify-content: center !important;
-            align-items: center !important;
-            text-align: center !important;
+    // Specifically target Mobirise table cells to override default bottom vertical-alignment
+    const tableCells = heroSection.querySelectorAll('.mbr-table-cell');
+    tableCells.forEach(cell => {
+        cell.style.cssText = `
             vertical-align: middle !important;
-            position: static !important;
-            width: 100% !important;
-            float: none !important;
+            display: table-cell !important;
+            text-align: center !important;
+        `;
+    });
+
+    // Override internal wrappers to ensure center alignment
+    const allWrappers = heroSection.querySelectorAll('div, .container, .row, .mbr-table, .mbr-box, .mbr-section__container');
+    allWrappers.forEach(el => {
+        el.style.cssText += `
+            text-align: center !important;
+            margin-left: auto !important;
+            margin-right: auto !important;
         `;
     });
 
@@ -79,15 +79,15 @@ document.addEventListener("DOMContentLoaded", function () {
 
     const sentence1 = [
         { text: "A central space", bold: true },
-        { text: " for ideas", bold: false },
-        { text: ", media", bold: false },
-        { text: ", and projects.", bold: false }
+        { text: " for ideas,", bold: false },
+        { text: " media,", bold: false },
+        { text: " and projects.", bold: false }
     ];
 
     const sentence2 = [
-        { text: "Exploring design", bold: false },
-        { text: ", technology", bold: false },
-        { text: ", and the big picture.", bold: false }
+        { text: "Exploring design,", bold: false },
+        { text: " technology,", bold: false },
+        { text: " and the big picture.", bold: false }
     ];
 
     let currentSentenceIndex = 0;
