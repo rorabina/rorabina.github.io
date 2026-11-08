@@ -1,8 +1,8 @@
 /**
  * Rorabina Precision Animated Header Script
- * - Keeps the animated title dead-centered (vertical and horizontal) at 4.0 font size.
- * - Pins the smaller text/timestamp independently to the absolute bottom.
- * - Leaves all other site titles untouched at 2.5.
+ * - Leaves the animated title at its default font size.
+ * - Centers the animated title vertically and horizontally.
+ * - Pins the smaller text/timestamp independently to the bottom.
  * - Granular word fade animation with full crossfade between sentence loops.
  */
 document.addEventListener("DOMContentLoaded", function () {
@@ -17,62 +17,58 @@ document.addEventListener("DOMContentLoaded", function () {
     const heroSection = headerElement.closest('section');
     if (!heroSection) return;
 
-    // Inject clean CSS for independent positioning (centered title, bottom text)
+    // Inject clean CSS for true flex-based vertical centering and bottom text placement
     if (!document.getElementById("rorabina-layout-fix-style")) {
         const style = document.createElement("style");
         style.id = "rorabina-layout-fix-style";
         style.innerHTML = `
-            /* Ensure hero section acts as a full-height positioning anchor */
+            /* Transform hero section into a clean vertical flex container */
             section:first-of-type {
                 position: relative !important;
                 min-height: 100vh !important;
+                display: flex !important;
+                flex-direction: column !important;
+                justify-content: center !important;
+                align-items: center !important;
                 box-sizing: border-box !important;
+                padding: 40px 20px !important;
             }
 
-            /* Neutralize Mobirise table cell constraints so absolute positioning works reliably */
+            /* Flatten Mobirise table cell constraints that force bottom alignment */
             section:first-of-type .mbr-table,
             section:first-of-type .mbr-table-cell {
-                display: block !important;
-                height: 100% !important;
-                position: relative !important;
-                vertical-align: baseline !important;
+                display: contents !important;
             }
 
-            /* Dead-center positioning exclusively for the animated title (title 2) */
+            /* Inner wrapper container */
+            section:first-of-type .container,
+            section:first-of-type .row,
+            section:first-of-type .mbr-box,
+            section:first-of-type .mbr-section__container {
+                display: flex !important;
+                flex-direction: column !important;
+                align-items: center !important;
+                width: 100% !important;
+                max-width: 1200px !important;
+                margin: 0 auto !important;
+            }
+
+            /* Animated title: centered, default font size, smooth opacity transition */
             section:first-of-type .mbr-section-title {
-                font-size: 4rem !important;
-                line-height: 1.25 !important;
                 text-align: center !important;
-                position: absolute !important;
-                top: 50% !important;
-                left: 50% !important;
-                transform: translate(-50%, -50%) !important;
-                width: 90% !important;
-                max-width: 1100px !important;
-                margin: 0 !important;
-                z-index: 5 !important;
+                margin: auto auto !important;
+                width: 100% !important;
                 transition: opacity 0.5s ease-in-out !important;
             }
 
-            /* Pin the smaller text/timestamp (tagged as text) independently to the bottom */
+            /* Bottom text / timestamp: pushed cleanly to the bottom */
             section:first-of-type .mbr-section-text,
             section:first-of-type .site-last-updated,
-            section:first-of-type div:has(.site-last-updated),
-            section:first-of-type .mbr-section__container:last-child {
-                position: absolute !important;
-                bottom: 30px !important;
-                left: 50% !important;
-                transform: translateX(-50%) !important;
-                width: 100% !important;
+            section:first-of-type div:has(.site-last-updated) {
+                margin-top: auto !important;
+                margin-bottom: 10px !important;
                 text-align: center !important;
-                z-index: 5 !important;
-            }
-
-            /* Responsive mobile adjustment */
-            @media (max-width: 768px) {
-                section:first-of-type .mbr-section-title {
-                    font-size: 2.5rem !important;
-                }
+                width: 100% !important;
             }
 
             /* Granular word fade animation */
