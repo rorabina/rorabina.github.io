@@ -1,8 +1,8 @@
 /**
  * Rorabina Precision Animated Header Script
  * - Leaves Title 2 completely untouched at its Mobirise-configured position and default font size.
+ * - Dynamically detaches the timestamp element from its centered container and pins it to the bottom.
  * - Granular word fade animation with full crossfade between sentence loops.
- * - Safely targets and pins ONLY the timestamp text element to the bottom center.
  */
 document.addEventListener("DOMContentLoaded", function () {
     // Strict homepage check
@@ -16,7 +16,7 @@ document.addEventListener("DOMContentLoaded", function () {
     const heroSection = headerElement.closest('section');
     if (!heroSection) return;
 
-    // Ensure hero section acts as a positioning anchor for the bottom text
+    // Ensure hero section acts as a clean positioning anchor
     heroSection.style.position = 'relative';
 
     // Inject CSS solely for the granular word fade animation
@@ -36,15 +36,16 @@ document.addEventListener("DOMContentLoaded", function () {
         document.head.appendChild(style);
     }
 
-    // Safely position ONLY the timestamp element at the bottom after window load
+    // Move the timestamp element out of the centered container and pin it to the absolute bottom
     window.addEventListener('load', function () {
         const allElements = heroSection.querySelectorAll('*');
         allElements.forEach(el => {
             if (el.textContent && (el.textContent.includes('Site Last Updated') || el.textContent.includes('Rabina Standard Time'))) {
-                // Ensure we never touch the header title or any container holding it
                 if (!el.classList.contains('mbr-section-title') && !el.contains(headerElement) && !headerElement.contains(el)) {
                     let targetBlock = el.closest('p') || el.closest('div') || el;
-                    if (!targetBlock.contains(headerElement)) {
+                    if (!targetBlock.contains(headerElement) && targetBlock.parentNode !== heroSection) {
+                        // Append directly to heroSection to escape Mobirise center-alignment
+                        heroSection.appendChild(targetBlock);
                         targetBlock.style.cssText = `
                             position: absolute !important;
                             bottom: 25px !important;
