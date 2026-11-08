@@ -87,16 +87,15 @@ document.addEventListener("DOMContentLoaded", function () {
     }
 
     const sentence1 = [
-        { text: "A central space", bold: true },
-        { text: " for ideas,", bold: false },
-        { text: " media,", bold: false },
-        { text: " and projects.", bold: false }
+        { text: "A central space for ideas, ", bold: true },
+        { text: "media, ", bold: false },
+        { text: "and projects.", bold: false }
     ];
 
     const sentence2 = [
-        { text: "Exploring design,", bold: false },
-        { text: " technology,", bold: false },
-        { text: " and the big picture.", bold: false }
+        { text: "Exploring design, ", bold: false },
+        { text: "technology, ", bold: false },
+        { text: "and the big picture.", bold: false }
     ];
 
     let currentSentenceIndex = 0;
