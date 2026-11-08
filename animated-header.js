@@ -1,7 +1,7 @@
 /**
  * Rorabina Precision Animated Header Script
- * - Scoped exclusively to the homepage hero section.
- * - Dismantles Mobirise bottom-alignment and forces TRUE vertical & horizontal centering.
+ * - Targets the exact section containing the main header title (ignoring Mobirise watermarks).
+ * - Forces true vertical and horizontal centering of the hero box.
  * - Applies 4.0 font size ONLY to the hero title, leaving all other site titles at 2.5.
  * - Animates newly added words with granular fade while keeping previous text solid.
  * - Full block crossfade transition only between sentence loops.
@@ -11,11 +11,14 @@ document.addEventListener("DOMContentLoaded", function () {
     const path = window.location.pathname;
     if (!path.endsWith('index.html') && path !== '/' && path !== '') return;
 
-    // Target ONLY the top hero section (first section of the homepage)
-    const heroSection = document.querySelector('section:first-of-type');
+    // Target the main header title directly, then find its parent section
+    const headerElement = document.querySelector(".mbr-section-title");
+    if (!headerElement) return;
+
+    const heroSection = headerElement.closest('section');
     if (!heroSection) return;
 
-    // Force heroSection to break bottom positioning and center vertically & horizontally
+    // Force heroSection to center vertically & horizontally
     heroSection.style.cssText = `
         display: flex !important;
         flex-direction: column !important;
@@ -25,7 +28,7 @@ document.addEventListener("DOMContentLoaded", function () {
         position: relative !important;
     `;
 
-    // Strip or override internal Mobirise wrappers that enforce bottom/table alignment
+    // Strip or override internal Mobirise wrappers inside the hero section only
     const allWrappers = heroSection.querySelectorAll('div, .container, .row, .mbr-table, .mbr-table-cell, .mbr-box, .mbr-section__container');
     allWrappers.forEach(el => {
         el.style.cssText = `
@@ -40,9 +43,6 @@ document.addEventListener("DOMContentLoaded", function () {
             float: none !important;
         `;
     });
-
-    const headerElement = heroSection.querySelector('.mbr-section-title, h1, h2, .display-2');
-    if (!headerElement) return;
 
     // Apply 4rem size, centering, and smooth transition properties exclusively to the hero title
     headerElement.style.cssText = `
