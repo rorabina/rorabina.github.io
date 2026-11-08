@@ -1,34 +1,34 @@
 /**
- * Rorabina Animated Header Script
- * Sequentially builds sentence 1 and sentence 2 in an infinite loop.
- * Operates independently without disrupting other page scripts.
+ * Rorabina Fluid Animated Header Script
+ * Features smooth crossfade transitions, centered alignment, and slower reading cadence.
  */
 document.addEventListener("DOMContentLoaded", function () {
-    // Target the main header title on the homepage
     const headerElement = document.querySelector(".mbr-section-title");
     if (!headerElement) return;
 
-    // Define the sequence chunks for Sentence 1 and Sentence 2
+    // Ensure fluid opacity transitions and center alignment are applied
+    headerElement.style.textAlign = "center";
+    headerElement.style.transition = "opacity 0.4s ease-in-out";
+
     const sentence1 = [
-        { text: "A central space ", bold: true },
-        { text: "for ideas, ", bold: false },
-        { text: "media, ", bold: false },
-        { text: "and projects.", bold: false }
+        { text: "A central space", bold: true },
+        { text: " for ideas", bold: false },
+        { text: ", media", bold: false },
+        { text: ", and projects.", bold: false }
     ];
 
     const sentence2 = [
-        { text: "Exploring design, ", bold: false },
-        { text: "technology, ", bold: false },
-        { text: "and the big picture.", bold: false }
+        { text: "Exploring design", bold: false },
+        { text: ", technology", bold: false },
+        { text: ", and the big picture.", bold: false }
     ];
 
     let currentSentenceIndex = 0;
     let currentChunkIndex = 0;
 
-    function renderSentence() {
-        const activeSentence = currentSentenceIndex === 0 ? sentence1 : sentence2;
+    function renderSentence(activeSentence, chunkIndex) {
         let html = "";
-        for (let i = 0; i <= currentChunkIndex; i++) {
+        for (let i = 0; i <= chunkIndex; i++) {
             let chunk = activeSentence[i];
             if (chunk.bold) {
                 html += `<span style="font-weight: bold;">${chunk.text}</span>`;
@@ -36,26 +36,41 @@ document.addEventListener("DOMContentLoaded", function () {
                 html += chunk.text;
             }
         }
-        headerElement.innerHTML = html;
+        return html;
     }
 
-    function runAnimationLoop() {
+    function runAnimation() {
         const activeSentence = currentSentenceIndex === 0 ? sentence1 : sentence2;
 
         if (currentChunkIndex < activeSentence.length) {
-            renderSentence();
-            currentChunkIndex++;
-            setTimeout(runAnimationLoop, 700); // Speed of each chunk appearing (milliseconds)
-        } else {
-            // Pause when the sentence is fully complete before switching
+            // Fluid crossfade: dip opacity slightly before updating the chunk
+            headerElement.style.opacity = "0.3";
             setTimeout(() => {
-                currentChunkIndex = 0;
-                currentSentenceIndex = currentSentenceIndex === 0 ? 1 : 0;
-                runAnimationLoop();
-            }, 3200); // Hold time on full sentence
+                headerElement.innerHTML = renderSentence(activeSentence, currentChunkIndex);
+                headerElement.style.opacity = "1";
+                currentChunkIndex++;
+                // Slower timing (1400ms per step) for comfortable reading
+                setTimeout(runAnimation, 1400);
+            }, 250);
+        } else {
+            // Hold the fully completed sentence longer on screen (4500ms)
+            setTimeout(() => {
+                // Smooth fade out before switching to the next sentence
+                headerElement.style.opacity = "0";
+                setTimeout(() => {
+                    currentChunkIndex = 0;
+                    currentSentenceIndex = currentSentenceIndex === 0 ? 1 : 0;
+                    headerElement.innerHTML = renderSentence(currentSentenceIndex === 0 ? sentence1 : sentence2, 0);
+                    headerElement.style.opacity = "1";
+                    setTimeout(runAnimation, 1400);
+                }, 500);
+            }, 4500);
         }
     }
 
-    // Start the independent loop
-    runAnimationLoop();
+    // Initialize first chunk and start loop
+    headerElement.innerHTML = renderSentence(sentence1, 0);
+    headerElement.style.opacity = "1";
+    currentChunkIndex = 1;
+    setTimeout(runAnimation, 1400);
 });
