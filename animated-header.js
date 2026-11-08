@@ -1,7 +1,7 @@
 /**
  * Rorabina Precision Animated Header Script
  * - Keeps the animated title at its default font size, centered vertically and horizontally.
- * - Pins the smaller text/timestamp independently to the bottom, centered horizontally.
+ * - Uses JavaScript to dynamically locate the timestamp/text element and pin it independently to the bottom.
  * - Granular word fade animation with full crossfade between sentence loops.
  */
 document.addEventListener("DOMContentLoaded", function () {
@@ -16,7 +16,7 @@ document.addEventListener("DOMContentLoaded", function () {
     const heroSection = headerElement.closest('section');
     if (!heroSection) return;
 
-    // Inject clean CSS for centered title and bottom-pinned text
+    // Inject clean CSS for section positioning and dead-center title (default font size)
     if (!document.getElementById("rorabina-layout-fix-style")) {
         const style = document.createElement("style");
         style.id = "rorabina-layout-fix-style";
@@ -51,20 +51,6 @@ document.addEventListener("DOMContentLoaded", function () {
                 transition: opacity 0.5s ease-in-out !important;
             }
 
-            /* Pin the smaller text/timestamp independently to the bottom, centered horizontally */
-            section:first-of-type .mbr-section-text,
-            section:first-of-type .site-last-updated,
-            section:first-of-type div:has(.site-last-updated),
-            section:first-of-type .mbr-section__container:last-child {
-                position: absolute !important;
-                bottom: 30px !important;
-                left: 50% !important;
-                transform: translateX(-50%) !important;
-                width: 100% !important;
-                text-align: center !important;
-                z-index: 5 !important;
-            }
-
             /* Granular word fade animation */
             @keyframes fadeInNewWord {
                 from { opacity: 0; transform: translateY(4px); }
@@ -77,6 +63,23 @@ document.addEventListener("DOMContentLoaded", function () {
         `;
         document.head.appendChild(style);
     }
+
+    // Dynamically find and pin the timestamp/text block to the bottom via JavaScript
+    const allElements = heroSection.querySelectorAll('*');
+    allElements.forEach(el => {
+        if (el.textContent && (el.textContent.includes('Site Last Updated') || el.textContent.includes('Rabina Standard Time'))) {
+            let targetBlock = el.closest('.mbr-section__container, p, div') || el;
+            targetBlock.style.cssText += `
+                position: absolute !important;
+                bottom: 30px !important;
+                left: 50% !important;
+                transform: translateX(-50%) !important;
+                width: 100% !important;
+                text-align: center !important;
+                z-index: 5 !important;
+            `;
+        }
+    });
 
     const sentence1 = [
         { text: "A central space for ideas, ", bold: true },
