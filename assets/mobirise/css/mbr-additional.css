@@ -1393,7 +1393,7 @@ a {
   color: #ffffff;
 }
 .cid-vBy1hdb6ES {
-  background-color: #ffffff;
+  background-color: #232323;
   padding-top: 0;
   padding-bottom: 0;
 }
@@ -1514,6 +1514,13 @@ a {
 .cid-vBy1hdb6ES .carousel-control-prev,
 .cid-vBy1hdb6ES .carousel-control-next {
   display: none;
+}
+.cid-vBy1hdb6ES .mbr-section-subtitle {
+  color: #ffffff;
+}
+.cid-vBy1hdb6ES .mbr-section-text,
+.cid-vBy1hdb6ES .mbr-section-btn {
+  color: #ffffff;
 }
 .cid-vBy7iebzo0 {
   display: flex;
