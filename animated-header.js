@@ -1,7 +1,7 @@
 /**
  * Rorabina Precision Animated Header Script
  * - Leaves Title 2 completely untouched at its Mobirise-configured position and default font size.
- * - Dynamically detaches the timestamp element and positions it higher from the bottom to prevent mobile cutoff.
+ * - Preserves HTML positioning/alignment on the timestamp element while retaining only a slight downward shift.
  * - Preserves dynamic date/time content managed by external scripts.
  * - Granular word fade animation with full crossfade between sentence loops.
  */
@@ -16,9 +16,6 @@ document.addEventListener("DOMContentLoaded", function () {
 
   const heroSection = headerElement.closest('section');
   if (!heroSection) return;
-
-  // Ensure hero section acts as a clean positioning anchor
-  heroSection.style.position = 'relative';
 
   // Inject CSS solely for the granular word fade animation
   if (!document.getElementById("rorabina-word-fade-style")) {
@@ -37,26 +34,21 @@ document.addEventListener("DOMContentLoaded", function () {
     document.head.appendChild(style);
   }
 
-  // Move the timestamp element out of the centered container and pin it higher from the bottom
+  // Keep HTML positioning/alignment intact; apply only a slight downward offset
   window.addEventListener('load', function () {
     const allElements = heroSection.querySelectorAll('*');
     allElements.forEach(el => {
       if (el.textContent && (el.textContent.includes('Site Last Updated') || el.textContent.includes('Rabina Standard Time'))) {
         if (!el.classList.contains('mbr-section-title') && !el.contains(headerElement) && !headerElement.contains(el)) {
           let targetBlock = el.closest('p') || el.closest('div') || el;
-          if (!targetBlock.contains(headerElement) && targetBlock.parentNode !== heroSection) {
-            // Append directly to heroSection to escape Mobirise center-alignment
-            heroSection.appendChild(targetBlock);
-            targetBlock.style.cssText = `
-              position: absolute !important;
-              bottom: 60px !important;
-              left: 50% !important;
-              transform: translateX(-50%) !important;
-              width: 100% !important;
-              text-align: center !important;
-              z-index: 5 !important;
-              margin: 0 !important;
-            `;
+          if (!targetBlock.contains(headerElement)) {
+            const computedPos = window.getComputedStyle(targetBlock).position;
+            if (computedPos === 'absolute' || computedPos === 'fixed') {
+              targetBlock.style.setProperty('bottom', '60px', 'important');
+            } else {
+              targetBlock.style.setProperty('margin-top', '60px', 'important');
+            }
+            targetBlock.style.setProperty('z-index', '5', 'important');
           }
         }
       }
