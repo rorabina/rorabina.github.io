@@ -1,7 +1,7 @@
 /**
  * Rorabina Precision Animated Header Script
  * - Leaves Title 2 completely untouched at its Mobirise-configured position and default font size.
- * - Preserves HTML positioning/alignment on the timestamp element while restoring the bottom offset.
+ * - Positions the timestamp subtitle toward the bottom of the hero box while preserving its HTML right alignment.
  * - Isolates the timestamp block from dynamic height/line changes in the animated hero title.
  * - Preserves dynamic date/time content managed by external scripts.
  * - Granular word fade animation with full crossfade between sentence loops.
@@ -18,7 +18,7 @@ document.addEventListener("DOMContentLoaded", function () {
   const heroSection = headerElement.closest('section');
   if (!heroSection) return;
 
-  // Anchor heroSection so bottom-offset positioning stays isolated from title changes
+  // Ensure heroSection acts as a clean bottom anchor for the hero box
   if (window.getComputedStyle(heroSection).position === 'static') {
     heroSection.style.position = 'relative';
   }
@@ -40,7 +40,7 @@ document.addEventListener("DOMContentLoaded", function () {
     document.head.appendChild(style);
   }
 
-  // Restore slight bottom positioning while respecting HTML alignment and isolating from title shifts
+  // Position subtitle toward the bottom of the hero box while preserving HTML alignment & isolating from title
   function applyBottomOffset() {
     const allElements = heroSection.querySelectorAll('*');
     allElements.forEach(el => {
@@ -48,23 +48,26 @@ document.addEventListener("DOMContentLoaded", function () {
         if (!el.classList.contains('mbr-section-title') && !el.contains(headerElement) && !headerElement.contains(el)) {
           let targetBlock = el.closest('p') || el.closest('div') || el;
           if (!targetBlock.contains(headerElement)) {
-            const computed = window.getComputedStyle(targetBlock);
-            const currentRect = targetBlock.getBoundingClientRect();
             const heroRect = heroSection.getBoundingClientRect();
+            const currentRect = targetBlock.getBoundingClientRect();
 
-            // Preserve right/HTML alignment without forcing center/left/transform overrides
-            if (computed.position !== 'absolute' && computed.position !== 'fixed') {
-              const currentRightOffset = Math.max(0, Math.round(heroRect.right - currentRect.right));
-              targetBlock.style.setProperty('position', 'absolute', 'important');
-              targetBlock.style.setProperty('right', `${currentRightOffset}px`, 'important');
-              targetBlock.style.setProperty('left', 'auto', 'important');
-              targetBlock.style.setProperty('transform', 'none', 'important');
-              targetBlock.style.setProperty('margin', '0', 'important');
+            // Record initial right offset once before moving, or preserve existing right offset
+            if (!targetBlock.dataset.rorabinaRightOffset) {
+              const rightGap = Math.max(24, Math.round(heroRect.right - currentRect.right));
+              targetBlock.dataset.rorabinaRightOffset = String(rightGap);
             }
 
-            // Restore the slightly-toward-the-bottom offset
-            targetBlock.style.setProperty('bottom', '60px', 'important');
+            const rightOffset = targetBlock.dataset.rorabinaRightOffset;
+            const visibleBottom = Math.min(window.innerHeight, heroRect.bottom);
+            const bottomPx = Math.max(60, Math.round(heroRect.bottom - visibleBottom + 60));
+
+            targetBlock.style.setProperty('position', 'absolute', 'important');
+            targetBlock.style.setProperty('right', `${rightOffset}px`, 'important');
+            targetBlock.style.setProperty('left', 'auto', 'important');
             targetBlock.style.setProperty('top', 'auto', 'important');
+            targetBlock.style.setProperty('bottom', `${bottomPx}px`, 'important');
+            targetBlock.style.setProperty('transform', 'none', 'important');
+            targetBlock.style.setProperty('margin', '0', 'important');
             targetBlock.style.setProperty('z-index', '5', 'important');
           }
         }
@@ -78,6 +81,7 @@ document.addEventListener("DOMContentLoaded", function () {
   });
 
   window.addEventListener('resize', applyBottomOffset);
+  window.addEventListener('scroll', applyBottomOffset, { passive: true });
 
   const sentence1 = [
     { text: "A central space for ideas, ", bold: true },
