@@ -940,7 +940,7 @@
               "text-align": "center"
             },
             ".mbr-text, .mbr-section-btn": {
-              "text-align": "center",
+              "text-align": "right",
               "color": "#757b62"
             },
             ".mbr-section-title": {
