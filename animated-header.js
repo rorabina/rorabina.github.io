@@ -1,7 +1,7 @@
 /**
  * Rorabina Precision Animated Header Script
  * - Leaves Title 2 completely untouched at its Mobirise-configured position and default font size.
- * - Positions the timestamp subtitle toward the bottom of the hero box while preserving its HTML right alignment.
+ * - Moves the timestamp subtitle to the bottom of the hero box while keeping its right-side alignment.
  * - Isolates the timestamp block from dynamic height/line changes in the animated hero title.
  * - Preserves dynamic date/time content managed by external scripts.
  * - Granular word fade animation with full crossfade between sentence loops.
@@ -18,7 +18,7 @@ document.addEventListener("DOMContentLoaded", function () {
   const heroSection = headerElement.closest('section');
   if (!heroSection) return;
 
-  // Ensure heroSection acts as a clean bottom anchor for the hero box
+  // Ensure heroSection spans full height and acts as the bottom positioning anchor
   if (window.getComputedStyle(heroSection).position === 'static') {
     heroSection.style.position = 'relative';
   }
@@ -40,8 +40,8 @@ document.addEventListener("DOMContentLoaded", function () {
     document.head.appendChild(style);
   }
 
-  // Position subtitle toward the bottom of the hero box while preserving HTML alignment & isolating from title
-  function applyBottomOffset() {
+  // Anchor subtitle at the bottom of the hero box while keeping right-side alignment
+  function placeSubtitleAtBottom() {
     const allElements = heroSection.querySelectorAll('*');
     allElements.forEach(el => {
       if (el.textContent && (el.textContent.includes('Site Last Updated') || el.textContent.includes('Rabina Standard Time'))) {
@@ -51,21 +51,23 @@ document.addEventListener("DOMContentLoaded", function () {
             const heroRect = heroSection.getBoundingClientRect();
             const currentRect = targetBlock.getBoundingClientRect();
 
-            // Record initial right offset once before moving, or preserve existing right offset
+            // Capture initial right offset once before moving to heroSection
             if (!targetBlock.dataset.rorabinaRightOffset) {
               const rightGap = Math.max(24, Math.round(heroRect.right - currentRect.right));
               targetBlock.dataset.rorabinaRightOffset = String(rightGap);
             }
 
-            const rightOffset = targetBlock.dataset.rorabinaRightOffset;
-            const visibleBottom = Math.min(window.innerHeight, heroRect.bottom);
-            const bottomPx = Math.max(60, Math.round(heroRect.bottom - visibleBottom + 60));
+            // Detach from inner column/wrapper so bottom offset anchors to heroSection, not a mid-box wrapper
+            if (targetBlock.parentNode !== heroSection) {
+              heroSection.appendChild(targetBlock);
+            }
 
+            const rightOffset = targetBlock.dataset.rorabinaRightOffset;
             targetBlock.style.setProperty('position', 'absolute', 'important');
             targetBlock.style.setProperty('right', `${rightOffset}px`, 'important');
             targetBlock.style.setProperty('left', 'auto', 'important');
             targetBlock.style.setProperty('top', 'auto', 'important');
-            targetBlock.style.setProperty('bottom', `${bottomPx}px`, 'important');
+            targetBlock.style.setProperty('bottom', '60px', 'important');
             targetBlock.style.setProperty('transform', 'none', 'important');
             targetBlock.style.setProperty('margin', '0', 'important');
             targetBlock.style.setProperty('z-index', '5', 'important');
@@ -76,12 +78,11 @@ document.addEventListener("DOMContentLoaded", function () {
   }
 
   window.addEventListener('load', function () {
-    applyBottomOffset();
-    requestAnimationFrame(applyBottomOffset);
+    placeSubtitleAtBottom();
+    requestAnimationFrame(placeSubtitleAtBottom);
   });
 
-  window.addEventListener('resize', applyBottomOffset);
-  window.addEventListener('scroll', applyBottomOffset, { passive: true });
+  window.addEventListener('resize', placeSubtitleAtBottom);
 
   const sentence1 = [
     { text: "A central space for ideas, ", bold: true },
