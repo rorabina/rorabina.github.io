@@ -1,7 +1,8 @@
 /**
  * Rorabina Precision Animated Header Script
  * - Leaves Title 2 completely untouched at its Mobirise-configured position and default font size.
- * - Preserves HTML positioning/alignment on the timestamp element while retaining only a slight downward shift.
+ * - Preserves HTML positioning/alignment on the timestamp element while restoring the bottom offset.
+ * - Isolates the timestamp block from dynamic height/line changes in the animated hero title.
  * - Preserves dynamic date/time content managed by external scripts.
  * - Granular word fade animation with full crossfade between sentence loops.
  */
@@ -16,6 +17,11 @@ document.addEventListener("DOMContentLoaded", function () {
 
   const heroSection = headerElement.closest('section');
   if (!heroSection) return;
+
+  // Anchor heroSection so bottom-offset positioning stays isolated from title changes
+  if (window.getComputedStyle(heroSection).position === 'static') {
+    heroSection.style.position = 'relative';
+  }
 
   // Inject CSS solely for the granular word fade animation
   if (!document.getElementById("rorabina-word-fade-style")) {
@@ -34,26 +40,44 @@ document.addEventListener("DOMContentLoaded", function () {
     document.head.appendChild(style);
   }
 
-  // Keep HTML positioning/alignment intact; apply only a slight downward offset
-  window.addEventListener('load', function () {
+  // Restore slight bottom positioning while respecting HTML alignment and isolating from title shifts
+  function applyBottomOffset() {
     const allElements = heroSection.querySelectorAll('*');
     allElements.forEach(el => {
       if (el.textContent && (el.textContent.includes('Site Last Updated') || el.textContent.includes('Rabina Standard Time'))) {
         if (!el.classList.contains('mbr-section-title') && !el.contains(headerElement) && !headerElement.contains(el)) {
           let targetBlock = el.closest('p') || el.closest('div') || el;
           if (!targetBlock.contains(headerElement)) {
-            const computedPos = window.getComputedStyle(targetBlock).position;
-            if (computedPos === 'absolute' || computedPos === 'fixed') {
-              targetBlock.style.setProperty('bottom', '60px', 'important');
-            } else {
-              targetBlock.style.setProperty('margin-top', '60px', 'important');
+            const computed = window.getComputedStyle(targetBlock);
+            const currentRect = targetBlock.getBoundingClientRect();
+            const heroRect = heroSection.getBoundingClientRect();
+
+            // Preserve right/HTML alignment without forcing center/left/transform overrides
+            if (computed.position !== 'absolute' && computed.position !== 'fixed') {
+              const currentRightOffset = Math.max(0, Math.round(heroRect.right - currentRect.right));
+              targetBlock.style.setProperty('position', 'absolute', 'important');
+              targetBlock.style.setProperty('right', `${currentRightOffset}px`, 'important');
+              targetBlock.style.setProperty('left', 'auto', 'important');
+              targetBlock.style.setProperty('transform', 'none', 'important');
+              targetBlock.style.setProperty('margin', '0', 'important');
             }
+
+            // Restore the slightly-toward-the-bottom offset
+            targetBlock.style.setProperty('bottom', '60px', 'important');
+            targetBlock.style.setProperty('top', 'auto', 'important');
             targetBlock.style.setProperty('z-index', '5', 'important');
           }
         }
       }
     });
+  }
+
+  window.addEventListener('load', function () {
+    applyBottomOffset();
+    requestAnimationFrame(applyBottomOffset);
   });
+
+  window.addEventListener('resize', applyBottomOffset);
 
   const sentence1 = [
     { text: "A central space for ideas, ", bold: true },
