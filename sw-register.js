@@ -187,8 +187,9 @@ function startLivePstClock() {
   setInterval(updatePstClocks, 1000);
 }
 
-// 5. Match section.display-7 background to footer (#000000) & restore link visibility
+// 5. Match section.display-7 background to footer (#000000) & restore original or #086784 link color
 function applyFooterBackgroundToDisplay7() {
+  const FALLBACK_LINK_COLOR = '#086784';
   const footerEl = document.querySelector('section#footer, footer, .footer');
   let footerBg = '#000000';
 
@@ -217,16 +218,27 @@ function applyFooterBackgroundToDisplay7() {
     '  pointer-events: auto !important;',
     '}',
     'section.display-7 a, section.display-7 a * {',
-    '  color: #cbd5e1 !important;',
     '  font-size: 0.875rem !important;',
     '  opacity: 1 !important;',
     '  visibility: visible !important;',
     '  display: inline-block !important;',
-    '}',
-    'section.display-7 a:hover, section.display-7 a:hover * {',
-    '  color: #ffffff !important;',
     '}'
   ].join('\n');
+
+  const display7Links = document.querySelectorAll('section.display-7 a, section.display-7 a *');
+  display7Links.forEach((node) => {
+    if (!node.dataset.origLinkColor) {
+      const currentColor = window.getComputedStyle(node).color;
+      const isUnusable =
+        !currentColor ||
+        currentColor === 'transparent' ||
+        currentColor === 'rgba(0, 0, 0, 0)' ||
+        currentColor === 'rgb(203, 213, 225)' ||
+        currentColor === footerBg;
+      node.dataset.origLinkColor = isUnusable ? FALLBACK_LINK_COLOR : currentColor;
+    }
+    node.style.setProperty('color', node.dataset.origLinkColor || FALLBACK_LINK_COLOR, 'important');
+  });
 }
 
 function runAllSwRegisterInit() {
