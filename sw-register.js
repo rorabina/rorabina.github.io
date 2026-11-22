@@ -187,16 +187,36 @@ function startLivePstClock() {
   setInterval(updatePstClocks, 1000);
 }
 
-// 5. Match section.display-7 background to footer (#000000) & restore original or #086784 link color
+// 5. Match section.display-7 background, text color, and font size to footer
 function applyFooterBackgroundToDisplay7() {
   const FALLBACK_LINK_COLOR = '#086784';
   const footerEl = document.querySelector('section#footer, footer, .footer');
   let footerBg = '#000000';
+  let footerTextColor = FALLBACK_LINK_COLOR;
+  let footerFontSize = '';
 
   if (footerEl) {
     const computedBg = window.getComputedStyle(footerEl).backgroundColor;
     if (computedBg && computedBg !== 'transparent' && computedBg !== 'rgba(0, 0, 0, 0)') {
       footerBg = computedBg;
+    }
+
+    const textProbe =
+      footerEl.querySelector('p, span, a, li, div') || footerEl;
+    const probeStyle = window.getComputedStyle(textProbe);
+    const candidateColor = probeStyle.color;
+
+    if (
+      candidateColor &&
+      candidateColor !== 'transparent' &&
+      candidateColor !== 'rgba(0, 0, 0, 0)' &&
+      candidateColor !== footerBg
+    ) {
+      footerTextColor = candidateColor;
+    }
+
+    if (probeStyle.fontSize && parseFloat(probeStyle.fontSize) > 0) {
+      footerFontSize = probeStyle.fontSize;
     }
   }
 
@@ -206,6 +226,10 @@ function applyFooterBackgroundToDisplay7() {
     styleTag.id = 'rorabina-display7-fix';
     document.head.appendChild(styleTag);
   }
+
+  const fontSizeRule = footerFontSize
+    ? '  font-size: ' + footerFontSize + ' !important;'
+    : '';
 
   styleTag.textContent = [
     'section.display-7, section.display-7 > div, section.display-7 .container, section.display-7 .row {',
@@ -218,27 +242,13 @@ function applyFooterBackgroundToDisplay7() {
     '  pointer-events: auto !important;',
     '}',
     'section.display-7 a, section.display-7 a * {',
-    '  font-size: 0.875rem !important;',
+    '  color: ' + footerTextColor + ' !important;',
+    fontSizeRule,
     '  opacity: 1 !important;',
     '  visibility: visible !important;',
     '  display: inline-block !important;',
     '}'
   ].join('\n');
-
-  const display7Links = document.querySelectorAll('section.display-7 a, section.display-7 a *');
-  display7Links.forEach((node) => {
-    if (!node.dataset.origLinkColor) {
-      const currentColor = window.getComputedStyle(node).color;
-      const isUnusable =
-        !currentColor ||
-        currentColor === 'transparent' ||
-        currentColor === 'rgba(0, 0, 0, 0)' ||
-        currentColor === 'rgb(203, 213, 225)' ||
-        currentColor === footerBg;
-      node.dataset.origLinkColor = isUnusable ? FALLBACK_LINK_COLOR : currentColor;
-    }
-    node.style.setProperty('color', node.dataset.origLinkColor || FALLBACK_LINK_COLOR, 'important');
-  });
 }
 
 function runAllSwRegisterInit() {
