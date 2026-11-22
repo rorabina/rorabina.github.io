@@ -31,15 +31,30 @@ module.exports = async function generateServiceWorker() {
     runtimeCaching: [
       {
         urlPattern: ({ request }) => request.mode === 'navigate',
-        handler: 'StaleWhileRevalidate',
-        options: { cacheName: 'rorabina-html-pages', expiration: { maxEntries: 50 } },
+        handler: 'NetworkFirst',
+        options: {
+          cacheName: 'rorabina-html-pages',
+          networkTimeoutSeconds: 4,
+          expiration: { maxEntries: 50 },
+          cacheableResponse: { statuses: [0, 200] }
+        }
       },
       {
-        urlPattern: ({ request, url }) => request.destination === 'style' || request.destination === 'script' || request.destination === 'image' || request.destination === 'font' || url.pathname.includes('/assets/'),
-        handler: 'CacheFirst',
-        options: { cacheName: 'rorabina-assets', expiration: { maxEntries: 300, maxAgeSeconds: 60 * 24 * 60 * 60 }, cacheableResponse: { statuses: [0, 200] } },
-      },
-    ],
+        urlPattern: ({ request, url }) =>
+          request.destination === 'style' ||
+          request.destination === 'script' ||
+          request.destination === 'image' ||
+          request.destination === 'font' ||
+          url.pathname.includes('/assets/'),
+        handler: 'StaleWhileRevalidate',
+        options: {
+          cacheName: 'rorabina-assets',
+          expiration: { maxEntries: 300, maxAgeSeconds: 60 * 24 * 60 * 60 },
+          cacheableResponse: { statuses: [0, 200] }
+        }
+      }
+    ]
   });
+
   console.log(`Successfully generated sw.js: precached ${count} files (${size} bytes).`);
 };
