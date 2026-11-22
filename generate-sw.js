@@ -31,10 +31,9 @@ module.exports = async function generateServiceWorker() {
     runtimeCaching: [
       {
         urlPattern: ({ request }) => request.mode === 'navigate',
-        handler: 'NetworkFirst',
+        handler: 'StaleWhileRevalidate',
         options: {
           cacheName: 'rorabina-html-pages',
-          networkTimeoutSeconds: 4,
           expiration: { maxEntries: 50 },
           cacheableResponse: { statuses: [0, 200] }
         }
