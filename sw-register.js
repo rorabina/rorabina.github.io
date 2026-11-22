@@ -204,7 +204,7 @@ function startLivePstClock() {
   setInterval(updatePstClocks, 1000);
 }
 
-// 5. Force match section.display-7 and its internal elements to footer background (#000000) & restore link visibility
+// 5. Match bottom container/link box to footer background (#000000) & restore link visibility
 function applyFooterBackgroundToDisplay7() {
   const footerEl = document.querySelector('section#footer, footer, .footer');
   let footerBg = '#000000';
@@ -242,23 +242,70 @@ function applyFooterBackgroundToDisplay7() {
       font-size: 0.875rem !important;
       opacity: 1 !important;
       visibility: visible !important;
+      display: inline-block !important;
     }
     section.display-7 a:hover,
     section.display-7 a:hover * {
       color: #ffffff !important;
     }
   `;
+
+  // Also inspect elements below the footer in case the dynamic Mobirise link sits outside section.display-7
+  if (!footerEl) return;
+  const footerRect = footerEl.getBoundingClientRect();
+  const candidates = Array.from(document.querySelectorAll('a, section, div, p, span'));
+
+  candidates.forEach(el => {
+    if (el === footerEl || footerEl.contains(el) || el.closest('#pwa-cache-status')) return;
+    const rect = el.getBoundingClientRect();
+    const cs = window.getComputedStyle(el);
+    const isBelowFooter = rect.top >= footerRect.bottom - 2;
+    const hasSlateBg =
+      cs.backgroundColor === 'rgb(15, 23, 42)' ||
+      (el.getAttribute('style') || '').toLowerCase().includes('#0f172a');
+    const isMobiriseLink =
+      el.tagName === 'A' &&
+      (rect.height === 0 ||
+        parseFloat(cs.fontSize) === 0 ||
+        parseFloat(cs.opacity) === 0 ||
+        cs.visibility === 'hidden' ||
+        cs.color === 'transparent' ||
+        cs.color === 'rgba(0, 0, 0, 0)');
+
+    if (isBelowFooter && (hasSlateBg || isMobiriseLink || el.closest('section.display-7'))) {
+      if (hasSlateBg || el.matches('section.display-7, section.display-7 > div')) {
+        el.style.setProperty('background-color', footerBg, 'important');
+        el.style.setProperty('background', footerBg, 'important');
+      }
+      el.style.setProperty('opacity', '1', 'important');
+      el.style.setProperty('visibility', 'visible', 'important');
+      el.style.setProperty('pointer-events', 'auto', 'important');
+      if (el.tagName === 'A' || el.closest('a')) {
+        const anchor = el.tagName === 'A' ? el : el.closest('a');
+        anchor.style.setProperty('color', '#cbd5e1', 'important');
+        anchor.style.setProperty('font-size', '0.875rem', 'important');
+        anchor.style.setProperty('display', 'inline-block', 'important');
+      }
+    }
+  });
 }
 
-// Initialize on load/DOMContentLoaded
-if (document.readyState === 'loading') {
-  document.addEventListener('DOMContentLoaded', () => {
-    initAndroidButton();
-    startLivePstClock();
-    applyFooterBackgroundToDisplay7();
-  });
-} else {
+function runAllSwRegisterInit() {
   initAndroidButton();
   startLivePstClock();
   applyFooterBackgroundToDisplay7();
 }
+
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', runAllSwRegisterInit);
+} else {
+  runAllSwRegisterInit();
+}
+
+window.addEventListener('load', () => {
+  applyFooterBackgroundToDisplay7();
+  const observer = new MutationObserver(() => {
+    applyFooterBackgroundToDisplay7();
+  });
+  observer.observe(document.body, { childList: true, subtree: true, attributes: true });
+});
