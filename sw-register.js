@@ -99,6 +99,14 @@ if ('serviceWorker' in navigator) {
       return 0;
     }
 
+    function recalculateTotals() {
+      manifestUrls = Object.keys(manifestFiles);
+      totalBytes = Object.values(manifestFiles).reduce(
+        (sum, val) => sum + (Number(val) || 0),
+        0
+      );
+    }
+
     async function syncLiveAppFiles() {
       if (!navigator.onLine) return;
       try {
@@ -109,7 +117,11 @@ if ('serviceWorker' in navigator) {
           const cachedRaw = sessionStorage.getItem(cacheKey);
           if (cachedRaw) {
             const parsed = JSON.parse(cachedRaw);
-            if (parsed && Date.now() - parsed.ts < 10 * 60 * 1000 && Array.isArray(parsed.items)) {
+            if (
+              parsed &&
+              Date.now() - parsed.ts < 10 * 60 * 1000 &&
+              Array.isArray(parsed.items)
+            ) {
               items = parsed.items;
             }
           }
@@ -142,15 +154,15 @@ if ('serviceWorker' in navigator) {
 
         let updated = false;
         for (const item of items) {
-          if (!(item.path in manifestFiles)) {
+          const prevSize = manifestFiles[item.path];
+          if (typeof prevSize !== 'number' || prevSize !== item.size) {
             manifestFiles[item.path] = item.size;
             updated = true;
           }
         }
 
         if (updated) {
-          manifestUrls = Object.keys(manifestFiles);
-          totalBytes = Object.values(manifestFiles).reduce((a, b) => a + b, 0);
+          recalculateTotals();
         }
       } catch (_) {}
     }
@@ -177,26 +189,38 @@ if ('serviceWorker' in navigator) {
     }
 
     async function loadPrecacheManifest() {
+      let loadedFromManifest = false;
       try {
         const res = await fetch('/precache-manifest.json', { cache: 'no-store' });
-        if (!res.ok) throw new Error(`HTTP ${res.status}`);
-        const data = await res.json();
-        const rawFiles = data.files || {};
-        manifestFiles = {};
+        if (res.ok) {
+          const data = await res.json();
+          const rawFiles = data?.files || {};
+          const nextFiles = {};
 
-        for (const [k, v] of Object.entries(rawFiles)) {
-          manifestFiles[normalizePath(k)] = Number(v) || 0;
+          for (const [k, v] of Object.entries(rawFiles)) {
+            nextFiles[normalizePath(k)] = Number(v) || 0;
+          }
+
+          if (Object.keys(nextFiles).length > 0) {
+            manifestFiles = nextFiles;
+            recalculateTotals();
+            if (Number(data?.totalBytes) > 0) {
+              totalBytes = Number(data.totalBytes);
+            }
+            loadedFromManifest = true;
+          }
         }
-
-        manifestUrls = Object.keys(manifestFiles);
-        totalBytes =
-          Number(data.totalBytes) ||
-          Object.values(manifestFiles).reduce((a, b) => a + b, 0);
       } catch (err) {
         console.warn('Could not load precache-manifest.json:', err);
       }
 
       await syncLiveAppFiles();
+
+      // If precache-manifest.json was temporarily unavailable, do not show only 111 KB
+      // without the rest of the site precache if manifestUrls has no local entries yet.
+      if (!loadedFromManifest) {
+        recalculateTotals();
+      }
     }
 
     function ensureWidgetContainer() {
