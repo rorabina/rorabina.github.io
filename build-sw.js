@@ -1,16 +1,12 @@
-const layoutProtections = require('./layout-protections.js');
-const injectDynamics = require('./inject-dynamics.js');
 const generateServiceWorker = require('./generate-sw.js');
 
 async function runPipeline() {
-  console.log('Starting Modular Build Pipeline...');
+  console.log('Starting Service Worker & Manifest Build...');
   try {
-    layoutProtections();
-    injectDynamics();
     await generateServiceWorker();
-    console.log('Build Pipeline Completed Successfully!');
+    console.log('Service Worker & Manifest Build Completed Successfully!');
   } catch (error) {
-    console.error('Build Pipeline Failed:', error);
+    console.error('Build Failed:', error);
     process.exit(1);
   }
 }
