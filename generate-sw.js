@@ -3,28 +3,33 @@ const path = require('path');
 const workboxBuild = require('workbox-build');
 
 const APP_ORIGIN = 'https://rorabina.github.io';
-const APP_API_URL = 'https://api.github.com/repos/rorabina/app/contents/?ref=gh-pages';
+const APP_TREE_API_URL =
+  'https://api.github.com/repos/rorabina/app/git/trees/gh-pages?recursive=1';
 
 async function fetchRemoteAppFiles() {
   try {
-    const res = await fetch(APP_API_URL, {
+    const res = await fetch(APP_TREE_API_URL, {
       headers: {
         Accept: 'application/vnd.github+json',
         'User-Agent': 'rorabina-pwa-builder'
       }
     });
     if (!res.ok) return [];
-    const items = await res.json();
-    if (!Array.isArray(items)) return [];
+    const data = await res.json();
+    const tree = Array.isArray(data?.tree) ? data.tree : [];
 
-    return items
-      .filter((item) => item && item.type === 'file' && item.name && item.name.toLowerCase() !== 'readme.md')
+    return tree
+      .filter((item) => {
+        if (!item || item.type !== 'blob' || !item.path) return false;
+        const lower = item.path.toLowerCase();
+        return lower !== 'readme.md' && !lower.startsWith('.github/');
+      })
       .map((item) => ({
-        path: `/app/${item.name}`,
+        path: `/app/${item.path.replace(/^\/+/, '')}`,
         size: Number(item.size) || 0
       }));
   } catch (err) {
-    console.warn('Could not fetch rorabina/app gh-pages file list:', err.message);
+    console.warn('Could not fetch rorabina/app gh-pages tree:', err.message);
     return [];
   }
 }
@@ -65,7 +70,7 @@ module.exports = async function generateServiceWorker() {
         handler: 'StaleWhileRevalidate',
         options: {
           cacheName: 'rorabina-web-utilities-app',
-          expiration: { maxEntries: 100, maxAgeSeconds: 30 * 24 * 60 * 60 },
+          expiration: { maxEntries: 150, maxAgeSeconds: 30 * 24 * 60 * 60 },
           cacheableResponse: { statuses: [0, 200] }
         }
       },
