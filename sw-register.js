@@ -74,6 +74,7 @@ if ('serviceWorker' in navigator) {
     let manifestUrls = [];
     let totalBytes = 0;
     let baselineUsageBytes = 0;
+    let swWorkerState = null;
 
     function normalizePath(pathname) {
       if (!pathname || pathname === '/') return '/index.html';
@@ -222,6 +223,10 @@ if ('serviceWorker' in navigator) {
     }
 
     function showReadyToRefresh(isNewUpdate) {
+      if (checkInterval) {
+        clearInterval(checkInterval);
+        checkInterval = null;
+      }
       const count = manifestUrls.length;
       renderProgressUI(
         isNewUpdate ? 'Update cached for offline use!' : 'Ready for offline use!',
@@ -308,19 +313,27 @@ if ('serviceWorker' in navigator) {
               : Math.min(Math.round((estimatedCount / totalCount) * 100), 99);
 
           const reg = await navigator.serviceWorker.getRegistration();
-          const isStillInstalling = Boolean(reg && reg.installing);
-          const allPrecached = manifestUrls.length > 0 && currentCount >= manifestUrls.length;
+          const hasActiveWorker = Boolean(reg && reg.active);
+          const hasInstallingWorker = Boolean(reg && reg.installing);
+          const workerFinished =
+            swWorkerState === 'installed' ||
+            swWorkerState === 'activated' ||
+            (!hasInstallingWorker && (hasActiveWorker || currentCount > 0));
 
-          if (!isStillInstalling && allPrecached) {
+          const reachedTarget =
+            (manifestUrls.length > 0 && currentCount >= manifestUrls.length) ||
+            (totalBytes > 0 && downloadedBytes >= totalBytes && workerFinished) ||
+            (workerFinished && currentCount > 0 && totalBytes > 0 && downloadedBytes >= totalBytes * 0.98);
+
+          if (reachedTarget) {
             percent = 100;
             downloadedBytes = totalBytes > 0 ? totalBytes : downloadedBytes;
-            estimatedCount = manifestUrls.length;
+            estimatedCount = manifestUrls.length > 0 ? manifestUrls.length : currentCount;
           }
 
           renderProgressUI(label, downloadedBytes, percent, estimatedCount, totalCount);
 
           if (percent >= 100) {
-            clearInterval(checkInterval);
             showReadyToRefresh(isNewUpdate);
           }
         } catch (err) {
@@ -339,6 +352,21 @@ if ('serviceWorker' in navigator) {
         .then((reg) => {
           const hadExistingController = Boolean(navigator.serviceWorker.controller);
 
+          const watchWorker = (worker) => {
+            if (!worker) return;
+            swWorkerState = worker.state;
+            worker.addEventListener('statechange', () => {
+              swWorkerState = worker.state;
+              if (worker.state === 'installed' && hadExistingController) {
+                showReadyToRefresh(true);
+              }
+            });
+          };
+
+          if (reg.installing) watchWorker(reg.installing);
+          if (reg.waiting) watchWorker(reg.waiting);
+          if (reg.active) swWorkerState = reg.active.state;
+
           reg.addEventListener('updatefound', () => {
             const newWorker = reg.installing;
             if (!newWorker) return;
@@ -346,12 +374,7 @@ if ('serviceWorker' in navigator) {
             if (hadExistingController) {
               startProgressMonitor(true);
             }
-
-            newWorker.addEventListener('statechange', () => {
-              if (newWorker.state === 'installed' && hadExistingController) {
-                showReadyToRefresh(true);
-              }
-            });
+            watchWorker(newWorker);
           });
 
           const checkForUpdate = () => {
