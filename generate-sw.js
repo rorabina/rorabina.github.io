@@ -35,8 +35,10 @@ async function fetchRemoteAppFiles() {
 }
 
 module.exports = async function generateServiceWorker() {
+  const rootDir = process.cwd();
+
   const { count, size, manifestEntries } = await workboxBuild.generateSW({
-    globDirectory: './',
+    globDirectory: rootDir,
     globPatterns: [
       '**/*.html',
       'assets/**/*.css',
@@ -57,7 +59,7 @@ module.exports = async function generateServiceWorker() {
       'releases/**/*',
       '.github/**/*'
     ],
-    swDest: 'sw.js',
+    swDest: path.join(rootDir, 'sw.js'),
     inlineWorkboxRuntime: true,
     ignoreURLParametersMatching: [/./],
     clientsClaim: true,
@@ -126,12 +128,12 @@ module.exports = async function generateServiceWorker() {
   const manifestPayload = { totalBytes, count: totalCount, files };
 
   fs.writeFileSync(
-    path.join('./', 'precache-manifest.json'),
+    path.join(rootDir, 'precache-manifest.json'),
     JSON.stringify(manifestPayload, null, 2),
     'utf8'
   );
 
-  const swRegisterPath = path.join('./', 'sw-register.js');
+  const swRegisterPath = path.join(rootDir, 'sw-register.js');
   if (fs.existsSync(swRegisterPath)) {
     const existing = fs
       .readFileSync(swRegisterPath, 'utf8')
