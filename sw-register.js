@@ -62,7 +62,7 @@
   window.addEventListener('pageshow', restoreLastPage);
 })();
 
-// 2. Service Worker Opt-In Registration, Exact File Size Monitoring & Minimizable Prompt
+// 2. Service Worker Opt-In Registration, Unified File Size Monitoring & Minimizable Prompt
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', async () => {
     const OPT_IN_KEY = 'pwa_offline_opt_in';
@@ -130,7 +130,7 @@ if ('serviceWorker' in navigator) {
           #pwa-cache-status { position: fixed; bottom: 20px; right: 20px; z-index: 99999; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; font-size: 13px; transition: opacity 0.3s ease, transform 0.3s ease; }
           .pwa-card { background: rgba(18, 18, 18, 0.94); color: #ffffff; padding: 14px 16px; border-radius: 12px; box-shadow: 0 8px 24px rgba(0,0,0,0.38); backdrop-filter: blur(8px); display: flex; flex-direction: column; gap: 9px; min-width: 270px; max-width: 340px; border: 1px solid rgba(255,255,255,0.12); }
           .pwa-progress-track { width: 100%; height: 6px; background: rgba(255, 255, 255, 0.2); border-radius: 3px; overflow: hidden; }
-          .pwa-progress-fill { height: 100%; width: 0%; background: #3b82f6; transition: width 0.25s ease-out; }
+          .pwa-progress-fill { height: 100%; width: 0%; background: #3b82f6; transition: width 0.2s ease-out; }
           .pwa-text-row { display: flex; justify-content: space-between; align-items: center; gap: 8px; font-weight: 600; }
           .pwa-sub-row { display: flex; justify-content: space-between; align-items: center; gap: 8px; font-size: 11.5px; color: #cbd5e1; font-variant-numeric: tabular-nums; }
           .pwa-desc { font-size: 12.5px; color: #cbd5e1; line-height: 1.4; }
@@ -279,12 +279,6 @@ if ('serviceWorker' in navigator) {
 
                 if (typeof manifestFiles[normPath] === 'number') {
                   manifestMatchedBytes += manifestFiles[normPath];
-                } else {
-                  const resp = await cache.match(req);
-                  if (resp) {
-                    const blob = await resp.clone().blob();
-                    manifestMatchedBytes += blob.size;
-                  }
                 }
               } catch (_) {}
             }
@@ -296,7 +290,7 @@ if ('serviceWorker' in navigator) {
           let downloadedBytes = Math.max(manifestMatchedBytes, cappedStorageBytes);
 
           const reachedTarget =
-            (totalBytes > 0 && downloadedBytes >= totalBytes * 0.995) ||
+            (totalBytes > 0 && downloadedBytes >= totalBytes * 0.99) ||
             (manifestUrls.length > 0 && currentCount >= manifestUrls.length);
 
           let percent = reachedTarget
@@ -317,7 +311,7 @@ if ('serviceWorker' in navigator) {
         } catch (err) {
           console.error('Cache progress error:', err);
         }
-      }, 250);
+      }, 500);
     }
 
     function registerAndMonitorServiceWorker(isExistingOptIn) {
