@@ -48,6 +48,7 @@ module.exports = async function generateServiceWorker() {
       'node_modules/**/*',
       'layout-protections.js',
       'inject-dynamics.js',
+      'inject-sw.js',
       'generate-sw.js',
       'build-sw.js',
       'sw.js',
