@@ -1,7 +1,9 @@
+const fs = require('fs');
+const path = require('path');
 const workboxBuild = require('workbox-build');
 
 module.exports = async function generateServiceWorker() {
-  const { count, size } = await workboxBuild.generateSW({
+  const { count, size, manifestEntries } = await workboxBuild.generateSW({
     globDirectory: './',
     globPatterns: [
       '**/*.html',
@@ -18,6 +20,7 @@ module.exports = async function generateServiceWorker() {
       'build-sw.js',
       'sw.js',
       'workbox-*.js',
+      'precache-manifest.json',
       'releases/**/*',
       '.github/**/*'
     ],
@@ -56,5 +59,23 @@ module.exports = async function generateServiceWorker() {
     ]
   });
 
-  console.log(`Successfully generated sw.js: precached ${count} files (${size} bytes).`);
+  const files = {};
+  let calculatedBytes = 0;
+
+  for (const entry of manifestEntries || []) {
+    const normalizedUrl = entry.url.startsWith('/') ? entry.url : '/' + entry.url;
+    const entrySize = Number(entry.size) || 0;
+    files[normalizedUrl] = entrySize;
+    calculatedBytes += entrySize;
+  }
+
+  const totalBytes = Number(size) > 0 ? Number(size) : calculatedBytes;
+
+  fs.writeFileSync(
+    path.join('./', 'precache-manifest.json'),
+    JSON.stringify({ totalBytes, count, files }, null, 2),
+    'utf8'
+  );
+
+  console.log(`Successfully generated sw.js: precached ${count} files (${totalBytes} bytes) and wrote precache-manifest.json.`);
 };
