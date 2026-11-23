@@ -110,7 +110,16 @@ module.exports = async function generateServiceWorker() {
 
   for (const entry of manifestEntries || []) {
     const normalizedUrl = entry.url.startsWith('/') ? entry.url : '/' + entry.url;
-    const entrySize = Number(entry.size) || 0;
+    let entrySize = Number(entry.size) || 0;
+    if (!entrySize) {
+      try {
+        const relPath = decodeURIComponent(entry.url.replace(/^\/+/, ''));
+        const localFilePath = path.join(rootDir, relPath);
+        if (fs.existsSync(localFilePath) && fs.statSync(localFilePath).isFile()) {
+          entrySize = fs.statSync(localFilePath).size;
+        }
+      } catch (_) {}
+    }
     files[normalizedUrl] = entrySize;
     calculatedBytes += entrySize;
   }
