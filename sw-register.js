@@ -117,9 +117,9 @@ if ('serviceWorker' in navigator) {
         style.id = 'pwa-cache-styles';
         style.textContent = `
           #pwa-cache-status { position: fixed; bottom: 20px; right: 20px; z-index: 99999; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; font-size: 13px; transition: opacity 0.3s ease, transform 0.3s ease; }
-          .pwa-card { background: rgba(18, 18, 18, 0.94); color: #ffffff; padding: 14px 16px; border-radius: 12px; box-shadow: 0 8px 24px rgba(0,0,0,0.38); backdrop-filter: blur(8px); display: flex; flex-direction: column; gap: 9px; min-width: 270px; max-width: 335px; border: 1px solid rgba(255,255,255,0.12); }
+          .pwa-card { background: rgba(18, 18, 18, 0.94); color: #ffffff; padding: 14px 16px; border-radius: 12px; box-shadow: 0 8px 24px rgba(0,0,0,0.38); backdrop-filter: blur(8px); display: flex; flex-direction: column; gap: 9px; min-width: 270px; max-width: 340px; border: 1px solid rgba(255,255,255,0.12); }
           .pwa-progress-track { width: 100%; height: 6px; background: rgba(255, 255, 255, 0.2); border-radius: 3px; overflow: hidden; }
-          .pwa-progress-fill { height: 100%; width: 0%; background: #3b82f6; transition: width 0.3s ease-out; }
+          .pwa-progress-fill { height: 100%; width: 0%; background: #3b82f6; transition: width 0.2s ease-out; }
           .pwa-text-row { display: flex; justify-content: space-between; align-items: center; gap: 8px; font-weight: 600; }
           .pwa-sub-row { display: flex; justify-content: space-between; align-items: center; gap: 8px; font-size: 11.5px; color: #cbd5e1; font-variant-numeric: tabular-nums; }
           .pwa-desc { font-size: 12.5px; color: #cbd5e1; line-height: 1.4; }
@@ -184,21 +184,22 @@ if ('serviceWorker' in navigator) {
       });
     }
 
-    function renderProgressUI(statusText, downloadedBytes, percent) {
+    function renderProgressUI(statusText, downloadedBytes, percent, cachedCount, totalCount) {
       if (!navigator.onLine) return;
       const container = ensureWidgetContainer();
       const safeTotal = Math.max(totalBytes, downloadedBytes);
       const remainingBytes = Math.max(0, safeTotal - downloadedBytes);
-      const sizeStats =
+      const sizeLine =
         safeTotal > 0
-          ? `${formatSize(downloadedBytes)} / ${formatSize(safeTotal)} (${formatSize(remainingBytes)} remaining)`
-          : `${downloadedBytes} files`;
+          ? `${formatSize(downloadedBytes)} / ${formatSize(safeTotal)} (${formatSize(remainingBytes)} left)`
+          : `${downloadedBytes} bytes`;
+      const fileLine = totalCount > 0 ? `${cachedCount}/${totalCount} files` : '';
 
       container.innerHTML = `
         <div class="pwa-card">
           <div class="pwa-text-row"><span id="pwa-status-label">${statusText}</span><span id="pwa-status-pct">${percent}%</span></div>
           <div class="pwa-progress-track"><div id="pwa-progress-fill" class="pwa-progress-fill" style="width:${percent}%"></div></div>
-          <div class="pwa-sub-row"><span>${sizeStats}</span></div>
+          <div class="pwa-sub-row"><span>${sizeLine}</span><span>${fileLine}</span></div>
           <div id="pwa-update-notice" class="pwa-sub-row" style="display:none;margin-top:4px;"><span>Update downloaded. Refresh to apply.</span><button id="pwa-refresh-btn" type="button">Refresh</button></div>
         </div>
       `;
@@ -209,10 +210,13 @@ if ('serviceWorker' in navigator) {
     }
 
     function showReadyToRefresh(isNewUpdate) {
+      const count = manifestUrls.length;
       renderProgressUI(
         isNewUpdate ? 'Update cached for offline use!' : 'Ready for offline use!',
         totalBytes,
-        100
+        100,
+        count,
+        count
       );
 
       if (isNewUpdate) {
@@ -230,13 +234,13 @@ if ('serviceWorker' in navigator) {
           widget.style.transform = 'translateY(10px)';
           setTimeout(() => widget.remove(), 400);
         }
-      }, 2200);
+      }, 2400);
     }
 
     function startProgressMonitor(isNewUpdate) {
       if (!navigator.onLine) return;
       const label = isNewUpdate ? 'Downloading update...' : 'Saving for offline use...';
-      renderProgressUI(label, 0, 0);
+      renderProgressUI(label, 0, 0, 0, manifestUrls.length);
 
       if (checkInterval) clearInterval(checkInterval);
 
@@ -252,27 +256,39 @@ if ('serviceWorker' in navigator) {
           const totalCount = Math.max(manifestUrls.length, currentCount, 1);
 
           let downloadedBytes = 0;
+          const seenPaths = new Set();
+
           for (const req of cachedRequests) {
             try {
               const normPath = normalizePath(new URL(req.url).pathname);
-              if (manifestFiles[normPath]) {
+              if (seenPaths.has(normPath)) continue;
+              seenPaths.add(normPath);
+
+              if (typeof manifestFiles[normPath] === 'number') {
                 downloadedBytes += manifestFiles[normPath];
+              } else {
+                const resp = await cache.match(req);
+                if (resp) {
+                  const blob = await resp.clone().blob();
+                  downloadedBytes += blob.size;
+                }
               }
             } catch (_) {}
           }
 
-          let percent = totalBytes > 0
-            ? Math.min(Math.round((downloadedBytes / totalBytes) * 100), 99)
-            : Math.min(Math.round((currentCount / totalCount) * 100), 99);
+          let percent =
+            totalBytes > 0
+              ? Math.min(Math.round((downloadedBytes / totalBytes) * 100), 99)
+              : Math.min(Math.round((currentCount / totalCount) * 100), 99);
 
           const reg = await navigator.serviceWorker.getRegistration();
           const isInstalling = Boolean(reg && (reg.installing || reg.waiting));
-          if (!isInstalling && currentCount >= totalCount) {
+          if (!isInstalling && currentCount >= manifestUrls.length && manifestUrls.length > 0) {
             percent = 100;
             downloadedBytes = Math.max(totalBytes, downloadedBytes);
           }
 
-          renderProgressUI(label, downloadedBytes, percent);
+          renderProgressUI(label, downloadedBytes, percent, Math.min(currentCount, totalCount), totalCount);
 
           if (percent >= 100) {
             clearInterval(checkInterval);
@@ -281,7 +297,7 @@ if ('serviceWorker' in navigator) {
         } catch (err) {
           console.error('Cache progress error:', err);
         }
-      }, 350);
+      }, 250);
     }
 
     function registerAndMonitorServiceWorker(isExistingOptIn) {
