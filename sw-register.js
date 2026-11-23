@@ -35,7 +35,7 @@
   window.addEventListener('pageshow', restorePage);
 })();
 
-// 2. Service Worker Opt-In Registration, Bundle Size & Minimizable Prompt
+// 2. Service Worker Opt-In Registration, Exact Byte Progress & Minimizable Prompt
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', async () => {
     const OPT_IN_KEY = 'pwa_offline_opt_in';
@@ -44,8 +44,12 @@ if ('serviceWorker' in navigator) {
       'https://api.github.com/repos/rorabina/app/git/trees/gh-pages?recursive=1';
     let barContainer = document.getElementById('pwa-cache-status');
     let checkInterval = null;
+    let manifestFiles = {};
     let totalBytes = Number(window.__PWA_BUNDLE_BYTES__) || 0;
-    let baselineUsage = 0;
+    let totalCount = 0;
+
+    const normalizePath = (p) =>
+      !p || p === '/' ? '/index.html' : p.startsWith('/') ? p : '/' + p;
 
     const formatSize = (b) => {
       if (!b || b <= 0) return '0.00 MB';
@@ -55,20 +59,18 @@ if ('serviceWorker' in navigator) {
         : `${Math.max(1, Math.round(b / 1024))} KB`;
     };
 
-    const getUsage = async () => {
-      try {
-        if (navigator.storage?.estimate)
-          return Number((await navigator.storage.estimate()).usage) || 0;
-      } catch (_) {}
-      return 0;
-    };
-
-    // Load totalBytes from /precache-manifest.json (includes main site + /app/ files)
     try {
       const res = await fetch('/precache-manifest.json', { cache: 'no-store' });
       if (res.ok) {
         const data = await res.json();
-        if (Number(data?.totalBytes) > 0) totalBytes = Number(data.totalBytes);
+        if (data?.files && typeof data.files === 'object') {
+          for (const [k, v] of Object.entries(data.files)) {
+            manifestFiles[normalizePath(k)] = Number(v) || 0;
+          }
+          totalCount = Object.keys(manifestFiles).length;
+          const sum = Object.values(manifestFiles).reduce((a, b) => a + b, 0);
+          totalBytes = Math.max(Number(data?.totalBytes) || 0, sum, totalBytes);
+        }
       }
     } catch (_) {}
 
@@ -151,13 +153,36 @@ if ('serviceWorker' in navigator) {
       renderProgress(label, 0, 0, false);
       clearInterval(checkInterval);
       checkInterval = setInterval(async () => {
-        const used = Math.max(0, (await getUsage()) - baselineUsage);
-        const pct =
-          totalBytes > 0
-            ? Math.min(Math.round((used / totalBytes) * 100), 99)
-            : 0;
-        renderProgress(label, Math.min(used, totalBytes || used), pct, false);
-      }, 500);
+        try {
+          const keys = await caches.keys();
+          const precacheKey = keys.find((k) => k.includes('workbox-precache'));
+          let doneBytes = 0;
+          let cachedCount = 0;
+          if (precacheKey) {
+            const cache = await caches.open(precacheKey);
+            const reqs = await cache.keys();
+            cachedCount = reqs.length;
+            for (const req of reqs) {
+              const norm = normalizePath(new URL(req.url).pathname);
+              if (manifestFiles[norm]) {
+                doneBytes += manifestFiles[norm];
+              } else {
+                const resp = await cache.match(req);
+                const len = Number(resp?.headers?.get('content-length')) || 0;
+                doneBytes += len;
+              }
+            }
+          }
+          const effectiveTotal = Math.max(totalBytes, doneBytes);
+          const pct =
+            effectiveTotal > 0
+              ? Math.min(Math.round((doneBytes / effectiveTotal) * 100), 99)
+              : totalCount > 0
+              ? Math.min(Math.round((cachedCount / totalCount) * 100), 99)
+              : 0;
+          renderProgress(label, doneBytes, pct, false);
+        } catch (_) {}
+      }, 400);
     }
 
     function finishMonitor(isUpdate) {
@@ -221,8 +246,7 @@ if ('serviceWorker' in navigator) {
         localStorage.setItem(MINIMIZED_KEY, 'true');
         renderMini();
       });
-      c.querySelector('.pwa-yes').addEventListener('click', async () => {
-        baselineUsage = await getUsage();
+      c.querySelector('.pwa-yes').addEventListener('click', () => {
         localStorage.setItem(OPT_IN_KEY, 'true');
         localStorage.removeItem(MINIMIZED_KEY);
         registerSW(false);
@@ -230,7 +254,6 @@ if ('serviceWorker' in navigator) {
       });
     }
 
-    baselineUsage = await getUsage();
     if (
       localStorage.getItem(OPT_IN_KEY) === 'true' ||
       localStorage.getItem('pwa_fully_cached') === 'true'
