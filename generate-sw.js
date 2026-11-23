@@ -36,8 +36,7 @@ async function fetchRemoteAppFiles() {
 
 module.exports = async function generateServiceWorker() {
   const rootDir = process.cwd();
-
-  const { count, size, manifestEntries } = await workboxBuild.generateSW({
+  const globConfig = {
     globDirectory: rootDir,
     globPatterns: [
       '**/*.html',
@@ -59,13 +58,21 @@ module.exports = async function generateServiceWorker() {
       'releases/**/*',
       '.github/**/*'
     ],
+    maximumFileSizeToCacheInBytes: 25 * 1024 * 1024
+  };
+
+  const { count, size, manifestEntries } = await workboxBuild.getManifest(
+    globConfig
+  );
+
+  await workboxBuild.generateSW({
+    ...globConfig,
     swDest: path.join(rootDir, 'sw.js'),
     inlineWorkboxRuntime: true,
     ignoreURLParametersMatching: [/./],
     clientsClaim: true,
     skipWaiting: true,
     cleanupOutdatedCaches: true,
-    maximumFileSizeToCacheInBytes: 25 * 1024 * 1024,
     runtimeCaching: [
       {
         urlPattern: ({ url }) =>
@@ -133,8 +140,17 @@ module.exports = async function generateServiceWorker() {
     }
   }
 
-  const totalBytes = calculatedBytes > 0 ? calculatedBytes : Number(size) || 0;
-  const manifestPayload = { totalBytes, count: totalCount, files };
+  const totalBytes = Math.max(calculatedBytes, (Number(size) || 0) + calculatedBytes);
+  const finalTotalBytes =
+    Object.keys(files).length > remoteAppFiles.length
+      ? calculatedBytes
+      : (Number(size) || 0) + calculatedBytes;
+
+  const manifestPayload = {
+    totalBytes: finalTotalBytes,
+    count: totalCount,
+    files
+  };
 
   fs.writeFileSync(
     path.join(rootDir, 'precache-manifest.json'),
@@ -149,12 +165,12 @@ module.exports = async function generateServiceWorker() {
       .replace(/^window\.__PWA_BUNDLE_BYTES__\s*=\s*\d+;\n/, '');
     fs.writeFileSync(
       swRegisterPath,
-      `window.__PWA_BUNDLE_BYTES__ = ${totalBytes};\n` + existing,
+      `window.__PWA_BUNDLE_BYTES__ = ${finalTotalBytes};\n` + existing,
       'utf8'
     );
   }
 
   console.log(
-    `Successfully generated sw.js: ${totalCount} files (${totalBytes} bytes) including ${remoteAppFiles.length} live /app/ files.`
+    `Successfully generated sw.js: ${totalCount} files (${finalTotalBytes} bytes) including ${remoteAppFiles.length} live /app/ files.`
   );
 };
