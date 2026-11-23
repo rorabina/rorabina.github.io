@@ -74,7 +74,6 @@ if ('serviceWorker' in navigator) {
     let manifestUrls = [];
     let totalBytes = 0;
     let baselineUsageBytes = 0;
-    let swWorkerState = null;
 
     function normalizePath(pathname) {
       if (!pathname || pathname === '/') return '/index.html';
@@ -197,22 +196,22 @@ if ('serviceWorker' in navigator) {
       });
     }
 
-    function renderProgressUI(statusText, downloadedBytes, percent, cachedCount, totalCount) {
+    function renderProgressUI(statusText, downloadedBytes, percent) {
       if (!navigator.onLine) return;
       const container = ensureWidgetContainer();
       const safeTotal = Math.max(totalBytes, downloadedBytes);
       const remainingBytes = Math.max(0, safeTotal - downloadedBytes);
       const sizeLine =
         safeTotal > 0
-          ? `${formatSize(downloadedBytes)} / ${formatSize(safeTotal)} (${formatSize(remainingBytes)} left)`
-          : `${downloadedBytes} bytes`;
-      const fileLine = totalCount > 0 ? `${cachedCount}/${totalCount} files` : '';
+          ? `${formatSize(downloadedBytes)} / ${formatSize(safeTotal)}`
+          : `${formatSize(downloadedBytes)}`;
+      const remLine = safeTotal > 0 ? `${formatSize(remainingBytes)} left` : '';
 
       container.innerHTML = `
         <div class="pwa-card">
           <div class="pwa-text-row"><span id="pwa-status-label">${statusText}</span><span id="pwa-status-pct">${percent}%</span></div>
           <div class="pwa-progress-track"><div id="pwa-progress-fill" class="pwa-progress-fill" style="width:${percent}%"></div></div>
-          <div class="pwa-sub-row"><span>${sizeLine}</span><span>${fileLine}</span></div>
+          <div class="pwa-sub-row"><span>${sizeLine}</span><span>${remLine}</span></div>
           <div id="pwa-update-notice" class="pwa-sub-row" style="display:none;margin-top:4px;"><span>Update downloaded. Refresh to apply.</span><button id="pwa-refresh-btn" type="button">Refresh</button></div>
         </div>
       `;
@@ -227,13 +226,10 @@ if ('serviceWorker' in navigator) {
         clearInterval(checkInterval);
         checkInterval = null;
       }
-      const count = manifestUrls.length;
       renderProgressUI(
         isNewUpdate ? 'Update cached for offline use!' : 'Ready for offline use!',
         totalBytes,
-        100,
-        count,
-        count
+        100
       );
 
       if (isNewUpdate) {
@@ -257,7 +253,7 @@ if ('serviceWorker' in navigator) {
     function startProgressMonitor(isNewUpdate) {
       if (!navigator.onLine) return;
       const label = isNewUpdate ? 'Downloading update...' : 'Saving for offline use...';
-      renderProgressUI(label, 0, 0, 0, manifestUrls.length);
+      renderProgressUI(label, 0, 0);
 
       if (checkInterval) clearInterval(checkInterval);
 
@@ -299,39 +295,21 @@ if ('serviceWorker' in navigator) {
           const cappedStorageBytes = totalBytes > 0 ? Math.min(deltaStorageBytes, totalBytes) : deltaStorageBytes;
           let downloadedBytes = Math.max(manifestMatchedBytes, cappedStorageBytes);
 
-          const totalCount = Math.max(manifestUrls.length, currentCount, 1);
-          let estimatedCount =
-            currentCount > 0
-              ? Math.min(currentCount, totalCount)
-              : totalBytes > 0
-              ? Math.min(manifestUrls.length, Math.round((downloadedBytes / totalBytes) * manifestUrls.length))
-              : 0;
-
-          let percent =
-            totalBytes > 0
-              ? Math.min(Math.round((downloadedBytes / totalBytes) * 100), 99)
-              : Math.min(Math.round((estimatedCount / totalCount) * 100), 99);
-
-          const reg = await navigator.serviceWorker.getRegistration();
-          const hasActiveWorker = Boolean(reg && reg.active);
-          const hasInstallingWorker = Boolean(reg && reg.installing);
-          const workerFinished =
-            swWorkerState === 'installed' ||
-            swWorkerState === 'activated' ||
-            (!hasInstallingWorker && (hasActiveWorker || currentCount > 0));
-
           const reachedTarget =
-            (manifestUrls.length > 0 && currentCount >= manifestUrls.length) ||
-            (totalBytes > 0 && downloadedBytes >= totalBytes && workerFinished) ||
-            (workerFinished && currentCount > 0 && totalBytes > 0 && downloadedBytes >= totalBytes * 0.98);
+            (totalBytes > 0 && downloadedBytes >= totalBytes * 0.995) ||
+            (manifestUrls.length > 0 && currentCount >= manifestUrls.length);
 
-          if (reachedTarget) {
-            percent = 100;
-            downloadedBytes = totalBytes > 0 ? totalBytes : downloadedBytes;
-            estimatedCount = manifestUrls.length > 0 ? manifestUrls.length : currentCount;
+          let percent = reachedTarget
+            ? 100
+            : totalBytes > 0
+            ? Math.min(Math.round((downloadedBytes / totalBytes) * 100), 99)
+            : 0;
+
+          if (reachedTarget && totalBytes > 0) {
+            downloadedBytes = totalBytes;
           }
 
-          renderProgressUI(label, downloadedBytes, percent, estimatedCount, totalCount);
+          renderProgressUI(label, downloadedBytes, percent);
 
           if (percent >= 100) {
             showReadyToRefresh(isNewUpdate);
@@ -352,21 +330,6 @@ if ('serviceWorker' in navigator) {
         .then((reg) => {
           const hadExistingController = Boolean(navigator.serviceWorker.controller);
 
-          const watchWorker = (worker) => {
-            if (!worker) return;
-            swWorkerState = worker.state;
-            worker.addEventListener('statechange', () => {
-              swWorkerState = worker.state;
-              if (worker.state === 'installed' && hadExistingController) {
-                showReadyToRefresh(true);
-              }
-            });
-          };
-
-          if (reg.installing) watchWorker(reg.installing);
-          if (reg.waiting) watchWorker(reg.waiting);
-          if (reg.active) swWorkerState = reg.active.state;
-
           reg.addEventListener('updatefound', () => {
             const newWorker = reg.installing;
             if (!newWorker) return;
@@ -374,7 +337,12 @@ if ('serviceWorker' in navigator) {
             if (hadExistingController) {
               startProgressMonitor(true);
             }
-            watchWorker(newWorker);
+
+            newWorker.addEventListener('statechange', () => {
+              if (newWorker.state === 'installed' && hadExistingController) {
+                showReadyToRefresh(true);
+              }
+            });
           });
 
           const checkForUpdate = () => {
