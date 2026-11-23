@@ -216,8 +216,6 @@ if ('serviceWorker' in navigator) {
 
       await syncLiveAppFiles();
 
-      // If precache-manifest.json was temporarily unavailable, do not show only 111 KB
-      // without the rest of the site precache if manifestUrls has no local entries yet.
       if (!loadedFromManifest) {
         recalculateTotals();
       }
@@ -519,11 +517,24 @@ function initAndroidButton() {
   });
 }
 
-// 4. Live PST Clock Ticker
+// 4. Live PST Clock, Last Updated & Dynamic Placeholders
 function startLivePstClock() {
+  const launchTarget = new Date('2028-03-01T10:00:00+08:00').getTime();
+
+  function formatCountdown(ms) {
+    if (ms <= 0) return 'Launch Day Arrived!';
+    const totalSec = Math.floor(ms / 1000);
+    const days = Math.floor(totalSec / 86400);
+    const hours = Math.floor((totalSec % 86400) / 3600);
+    const mins = Math.floor((totalSec % 3600) / 60);
+    const secs = totalSec % 60;
+    return `${days}d ${hours}h ${mins}m ${secs}s`;
+  }
+
   function updatePstClocks() {
+    const now = new Date();
     const nowPST =
-      new Date().toLocaleString('en-US', {
+      now.toLocaleString('en-US', {
         timeZone: 'Asia/Manila',
         dateStyle: 'medium',
         timeStyle: 'medium',
@@ -533,6 +544,28 @@ function startLivePstClock() {
     document.querySelectorAll('.pst-live-clock').forEach((clock) => {
       clock.textContent = nowPST;
     });
+
+    const lastModDate = document.lastModified ? new Date(document.lastModified) : now;
+    const formattedLastUpdated = Number.isNaN(lastModDate.getTime())
+      ? nowPST
+      : lastModDate.toLocaleString('en-US', {
+          timeZone: 'Asia/Manila',
+          dateStyle: 'medium',
+          timeStyle: 'short',
+          hour12: true
+        }) + ' PST';
+
+    const countdownText = formatCountdown(launchTarget - now.getTime());
+
+    const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT);
+    let node;
+    while ((node = walker.nextNode())) {
+      if (!node.nodeValue || !node.nodeValue.includes('NULL')) continue;
+      node.nodeValue = node.nodeValue
+        .replace(/\bNULL1\b/g, formattedLastUpdated)
+        .replace(/\bNULL2\b/g, nowPST)
+        .replace(/\bNULL3\b/g, countdownText);
+    }
   }
 
   updatePstClocks();
