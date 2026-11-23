@@ -67,7 +67,8 @@ if ('serviceWorker' in navigator) {
   window.addEventListener('load', async () => {
     const OPT_IN_KEY = 'pwa_offline_opt_in';
     const MINIMIZED_KEY = 'pwa_offline_minimized';
-    const APP_API_URL = 'https://api.github.com/repos/rorabina/app/contents/?ref=gh-pages';
+    const APP_TREE_API_URL =
+      'https://api.github.com/repos/rorabina/app/git/trees/gh-pages?recursive=1';
     const APP_CACHE_NAME = 'rorabina-web-utilities-app';
     let barContainer = document.getElementById('pwa-cache-status');
     let checkInterval = null;
@@ -101,7 +102,7 @@ if ('serviceWorker' in navigator) {
     async function syncLiveAppFiles() {
       if (!navigator.onLine) return;
       try {
-        const cacheKey = 'rorabina_app_files_cache_v1';
+        const cacheKey = 'rorabina_app_tree_cache_v1';
         let items = null;
 
         try {
@@ -115,15 +116,21 @@ if ('serviceWorker' in navigator) {
         } catch (_) {}
 
         if (!items) {
-          const res = await fetch(APP_API_URL, { headers: { Accept: 'application/vnd.github+json' } });
+          const res = await fetch(APP_TREE_API_URL, {
+            headers: { Accept: 'application/vnd.github+json' }
+          });
           if (!res.ok) return;
           const data = await res.json();
-          if (!Array.isArray(data)) return;
+          const tree = Array.isArray(data?.tree) ? data.tree : [];
 
-          items = data
-            .filter((entry) => entry && entry.type === 'file' && entry.name && entry.name.toLowerCase() !== 'readme.md')
+          items = tree
+            .filter((entry) => {
+              if (!entry || entry.type !== 'blob' || !entry.path) return false;
+              const lower = entry.path.toLowerCase();
+              return lower !== 'readme.md' && !lower.startsWith('.github/');
+            })
             .map((entry) => ({
-              path: `/app/${entry.name}`,
+              path: `/app/${entry.path.replace(/^\/+/, '')}`,
               size: Number(entry.size) || 0,
               sha: entry.sha || ''
             }));
