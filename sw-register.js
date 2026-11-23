@@ -174,7 +174,7 @@ if ('serviceWorker' in navigator) {
         <div class="pwa-card" role="region" aria-label="Offline Caching">
           <div class="pwa-text-row"><span>Download for Offline Use?</span></div>
           <div class="pwa-desc">
-            Cache this site for offline access. Total download size: <span class="pwa-size-pill">${sizeLabel}</span>
+            Download offline bundle (<span class="pwa-size-pill">${sizeLabel}</span> initial; grows slightly as you visit more pages).
           </div>
           <div class="pwa-btn-group">
             <button type="button" class="pwa-btn pwa-btn-no">No</button>
