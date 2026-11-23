@@ -1,321 +1,293 @@
-// 1. Preserve & Restore Last Visited Page in PWA Standalone Mode
-(function managePwaState() {
-  const isStandalone =
-    window.matchMedia('(display-mode: standalone)').matches ||
-    window.navigator.standalone;
-  if (!isStandalone) return;
+(function () {
+  if (!('serviceWorker' in navigator)) return;
 
-  function isIndexPage(path) {
-    return (
-      path === '/' ||
-      path === '' ||
-      path.endsWith('/index.html') ||
-      path.endsWith('index.html')
-    );
+  const DISMISS_KEY = 'rorabina_offline_prompt_minimized';
+
+  function formatBytes(bytes) {
+    if (!bytes || bytes <= 0) return '0.00 MB';
+    const mb = bytes / (1024 * 1024);
+    if (mb >= 1) return `${mb.toFixed(2)} MB`;
+    const kb = bytes / 1024;
+    return `${kb.toFixed(0)} KB`;
   }
 
-  function saveCurrentPage() {
-    const currentPath = window.location.pathname;
-    if (isIndexPage(currentPath)) {
-      localStorage.removeItem('pwa_last_page');
-    } else if (currentPath) {
-      localStorage.setItem('pwa_last_page', currentPath);
+  function injectStyles() {
+    if (document.getElementById('rorabina-pwa-styles')) return;
+    const style = document.createElement('style');
+    style.id = 'rorabina-pwa-styles';
+    style.textContent = `
+      #rorabina-pwa-ui {
+        position: fixed;
+        right: 16px;
+        bottom: 16px;
+        z-index: 99999;
+        font-family: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+        color: #f5f5f7;
+      }
+      .rpwa-card {
+        background: rgba(20, 20, 24, 0.94);
+        backdrop-filter: blur(12px);
+        -webkit-backdrop-filter: blur(12px);
+        border: 1px solid rgba(255, 255, 255, 0.14);
+        border-radius: 14px;
+        padding: 14px 16px;
+        width: min(320px, calc(100vw - 32px));
+        box-shadow: 0 12px 32px rgba(0, 0, 0, 0.45);
+        font-size: 13px;
+        line-height: 1.45;
+      }
+      .rpwa-title {
+        font-weight: 600;
+        font-size: 14px;
+        margin-bottom: 4px;
+        color: #ffffff;
+      }
+      .rpwa-desc {
+        color: rgba(255, 255, 255, 0.78);
+        margin-bottom: 12px;
+      }
+      .rpwa-size-badge {
+        display: inline-block;
+        background: rgba(255, 255, 255, 0.1);
+        color: #ffffff;
+        font-weight: 600;
+        padding: 1px 7px;
+        border-radius: 6px;
+        font-variant-numeric: tabular-nums;
+      }
+      .rpwa-actions {
+        display: flex;
+        gap: 8px;
+        justify-content: flex-end;
+      }
+      .rpwa-btn {
+        border: none;
+        border-radius: 8px;
+        padding: 7px 14px;
+        font-size: 12.5px;
+        font-weight: 600;
+        cursor: pointer;
+        transition: opacity 0.15s ease, transform 0.1s ease;
+      }
+      .rpwa-btn:active { transform: scale(0.97); }
+      .rpwa-btn-no {
+        background: rgba(255, 255, 255, 0.1);
+        color: #e0e0e0;
+      }
+      .rpwa-btn-no:hover { background: rgba(255, 255, 255, 0.18); }
+      .rpwa-btn-yes {
+        background: #ffffff;
+        color: #111111;
+      }
+      .rpwa-btn-yes:hover { opacity: 0.9; }
+      .rpwa-progress-bar {
+        width: 100%;
+        height: 6px;
+        background: rgba(255, 255, 255, 0.14);
+        border-radius: 999px;
+        overflow: hidden;
+        margin: 8px 0 6px;
+      }
+      .rpwa-progress-fill {
+        height: 100%;
+        width: 0%;
+        background: #4ade80;
+        transition: width 0.2s ease;
+      }
+      .rpwa-stats {
+        display: flex;
+        justify-content: space-between;
+        font-size: 11.5px;
+        color: rgba(255, 255, 255, 0.72);
+        font-variant-numeric: tabular-nums;
+      }
+      .rpwa-pill {
+        display: inline-flex;
+        align-items: center;
+        gap: 7px;
+        background: rgba(20, 20, 24, 0.9);
+        backdrop-filter: blur(10px);
+        -webkit-backdrop-filter: blur(10px);
+        color: #ffffff;
+        border: 1px solid rgba(255, 255, 255, 0.16);
+        border-radius: 999px;
+        padding: 8px 13px;
+        font-size: 12px;
+        font-weight: 600;
+        cursor: pointer;
+        box-shadow: 0 6px 20px rgba(0, 0, 0, 0.35);
+      }
+      .rpwa-pill:hover {
+        background: rgba(34, 34, 40, 0.96);
+      }
+      .rpwa-dot {
+        width: 7px;
+        height: 7px;
+        border-radius: 50%;
+        background: #38bdf8;
+      }
+    `;
+    document.head.appendChild(style);
+  }
+
+  function getContainer() {
+    injectStyles();
+    let el = document.getElementById('rorabina-pwa-ui');
+    if (!el) {
+      el = document.createElement('div');
+      el.id = 'rorabina-pwa-ui';
+      document.body.appendChild(el);
     }
+    return el;
   }
 
-  function restoreLastPage() {
-    const currentPath = window.location.pathname;
-    const lastPath = localStorage.getItem('pwa_last_page');
-    if (isIndexPage(currentPath) && lastPath && !isIndexPage(lastPath)) {
-      window.location.replace(lastPath);
-    }
-  }
-
-  function attachHomeLinkListeners() {
-    const homeLinks = document.querySelectorAll(
-      'a[href="/"], a[href$="index.html"], .navbar-brand, a.nav-link[href*="index"]'
-    );
-    homeLinks.forEach((link) => {
-      link.addEventListener('click', () => {
-        localStorage.removeItem('pwa_last_page');
-      });
+  function renderMinimizedPill(totalBytes, onExpand) {
+    const container = getContainer();
+    const sizeText = totalBytes > 0 ? ` (${formatBytes(totalBytes)})` : '';
+    container.innerHTML = `
+      <button type="button" class="rpwa-pill" aria-label="Open offline download prompt">
+        <span class="rpwa-dot"></span>
+        <span>Save Offline${sizeText}</span>
+      </button>
+    `;
+    container.querySelector('.rpwa-pill').addEventListener('click', () => {
+      try { sessionStorage.removeItem(DISMISS_KEY); } catch (_) {}
+      onExpand();
     });
   }
 
-  saveCurrentPage();
-  restoreLastPage();
-
-  if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', attachHomeLinkListeners);
-  } else {
-    attachHomeLinkListeners();
+  function renderOptInPrompt(totalBytes, onYes, onNo) {
+    const container = getContainer();
+    const remainingText = totalBytes > 0 ? formatBytes(totalBytes) : 'calculating...';
+    container.innerHTML = `
+      <div class="rpwa-card" role="region" aria-label="Offline Caching">
+        <div class="rpwa-title">Download for Offline Access?</div>
+        <div class="rpwa-desc">
+          Save this site to your device for offline viewing.
+          Estimated data: <span class="rpwa-size-badge">${remainingText}</span>
+        </div>
+        <div class="rpwa-actions">
+          <button type="button" class="rpwa-btn rpwa-btn-no">No</button>
+          <button type="button" class="rpwa-btn rpwa-btn-yes">Yes, Download</button>
+        </div>
+      </div>
+    `;
+    container.querySelector('.rpwa-btn-no').addEventListener('click', onNo);
+    container.querySelector('.rpwa-btn-yes').addEventListener('click', onYes);
   }
 
-  document.addEventListener('visibilitychange', () => {
-    if (document.visibilityState === 'visible') {
-      restoreLastPage();
-    } else {
-      saveCurrentPage();
-    }
-  });
+  function renderProgress(downloadedBytes, totalBytes) {
+    const container = getContainer();
+    const safeTotal = Math.max(totalBytes, downloadedBytes, 1);
+    const remainingBytes = Math.max(0, safeTotal - downloadedBytes);
+    const pct = Math.min(100, Math.round((downloadedBytes / safeTotal) * 100));
 
-  window.addEventListener('pageshow', restoreLastPage);
-})();
+    container.innerHTML = `
+      <div class="rpwa-card" role="status" aria-live="polite">
+        <div class="rpwa-title">Downloading Offline Files…</div>
+        <div class="rpwa-progress-bar">
+          <div class="rpwa-progress-fill" style="width: ${pct}%"></div>
+        </div>
+        <div class="rpwa-stats">
+          <span>${formatBytes(downloadedBytes)} / ${formatBytes(safeTotal)}</span>
+          <span>${formatBytes(remainingBytes)} left (${pct}%)</span>
+        </div>
+      </div>
+    `;
+  }
 
-// 2. Service Worker Registration & Offline Cache Progress UI
-if ('serviceWorker' in navigator) {
-  window.addEventListener('load', () => {
-    let barContainer = document.getElementById('pwa-cache-status');
-    let checkInterval = null;
-    let manualReloadPending = false;
+  function renderComplete(totalBytes) {
+    const container = getContainer();
+    container.innerHTML = `
+      <div class="rpwa-card" role="status">
+        <div class="rpwa-title">Offline Ready</div>
+        <div class="rpwa-desc" style="margin-bottom: 0;">
+          All files cached (<span class="rpwa-size-badge">${formatBytes(totalBytes)}</span>). Available offline anytime.
+        </div>
+      </div>
+    `;
+    setTimeout(() => {
+      const el = document.getElementById('rorabina-pwa-ui');
+      if (el) el.remove();
+    }, 4500);
+  }
 
-    function ensureProgressBar(statusText) {
-      if (!navigator.onLine) return null;
+  function renderError(message, onRetry, onMinimize) {
+    const container = getContainer();
+    container.innerHTML = `
+      <div class="rpwa-card" role="alert">
+        <div class="rpwa-title">Offline Download Paused</div>
+        <div class="rpwa-desc">${message || 'Connection interrupted before completion.'}</div>
+        <div class="rpwa-actions">
+          <button type="button" class="rpwa-btn rpwa-btn-no">Minimize</button>
+          <button type="button" class="rpwa-btn rpwa-btn-yes">Retry</button>
+        </div>
+      </div>
+    `;
+    container.querySelector('.rpwa-btn-no').addEventListener('click', onMinimize);
+    container.querySelector('.rpwa-btn-yes').addEventListener('click', onRetry);
+  }
 
-      if (!barContainer) {
-        barContainer = document.createElement('div');
-        barContainer.id = 'pwa-cache-status';
-        barContainer.innerHTML = `
-          <style>
-            #pwa-cache-status { position: fixed; bottom: 20px; right: 20px; z-index: 99999; background: rgba(18, 18, 18, 0.94); color: #ffffff; padding: 12px 16px; border-radius: 12px; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; font-size: 13px; box-shadow: 0 8px 24px rgba(0,0,0,0.35); backdrop-filter: blur(8px); display: flex; flex-direction: column; gap: 8px; min-width: 240px; max-width: 320px; transition: opacity 0.4s ease, transform 0.4s ease; }
-            .pwa-progress-track { width: 100%; height: 6px; background: rgba(255, 255, 255, 0.2); border-radius: 3px; overflow: hidden; }
-            .pwa-progress-fill { height: 100%; width: 0%; background: #3b82f6; transition: width 0.3s ease-out; }
-            .pwa-text-row { display: flex; justify-content: space-between; align-items: center; gap: 8px; font-weight: 500; }
-            .pwa-action-row { display: flex; justify-content: space-between; align-items: center; gap: 8px; font-size: 12px; color: #cbd5e1; }
-            #pwa-refresh-btn { background: #3b82f6; color: #ffffff; border: none; border-radius: 6px; padding: 4px 10px; font-size: 12px; font-weight: 600; cursor: pointer; }
-            #pwa-refresh-btn:hover { background: #2563eb; }
-          </style>
-          <div class="pwa-text-row"><span id="pwa-status-label">${statusText}</span><span id="pwa-status-pct">0%</span></div>
-          <div class="pwa-progress-track"><div id="pwa-progress-fill" class="pwa-progress-fill"></div></div>
-          <div id="pwa-update-notice" class="pwa-action-row" style="display:none;"><span>Update downloaded. Refresh to apply.</span><button id="pwa-refresh-btn" type="button">Refresh</button></div>
-        `;
-        document.body.appendChild(barContainer);
+  window.addEventListener('load', async () => {
+    try {
+      const reg = await navigator.serviceWorker.register('/sw.js');
 
-        const refreshBtn = document.getElementById('pwa-refresh-btn');
-        if (refreshBtn) {
-          refreshBtn.addEventListener('click', () => window.location.reload());
-        }
-      } else {
-        barContainer.style.opacity = '1';
-        barContainer.style.transform = 'translateY(0)';
-        const labelEl = document.getElementById('pwa-status-label');
-        if (labelEl) labelEl.textContent = statusText;
-      }
+      const postToSw = (msg) => {
+        const worker = reg.active || reg.waiting || reg.installing || navigator.serviceWorker.controller;
+        if (worker) worker.postMessage(msg);
+      };
 
-      return barContainer;
-    }
+      let latestTotalBytes = 0;
 
-    function showReadyToRefresh(isNewUpdate) {
-      const fill = document.getElementById('pwa-progress-fill');
-      const pctText = document.getElementById('pwa-status-pct');
-      const labelText = document.getElementById('pwa-status-label');
-      const noticeRow = document.getElementById('pwa-update-notice');
+      const startDownload = () => {
+        renderProgress(0, latestTotalBytes);
+        postToSw({ type: 'START_OFFLINE_CACHE' });
+      };
 
-      if (fill) fill.style.width = '100%';
-      if (pctText) pctText.innerText = '100%';
+      const minimizePrompt = () => {
+        try { sessionStorage.setItem(DISMISS_KEY, '1'); } catch (_) {}
+        renderMinimizedPill(latestTotalBytes, showPrompt);
+      };
 
-      if (isNewUpdate) {
-        manualReloadPending = true;
-        if (labelText) labelText.innerText = 'Update cached for offline use!';
-        if (noticeRow) noticeRow.style.display = 'flex';
-        return;
-      }
+      const showPrompt = () => {
+        renderOptInPrompt(latestTotalBytes, startDownload, minimizePrompt);
+      };
 
-      if (labelText) labelText.innerText = 'Ready for offline use!';
-      localStorage.setItem('pwa_fully_cached', 'true');
-      setTimeout(() => {
-        const widget = document.getElementById('pwa-cache-status');
-        if (widget && !manualReloadPending) {
-          widget.style.opacity = '0';
-          widget.style.transform = 'translateY(10px)';
-          setTimeout(() => widget.remove(), 400);
-        }
-      }, 2000);
-    }
+      navigator.serviceWorker.addEventListener('message', (event) => {
+        const data = event.data || {};
+        if (data.totalBytes) latestTotalBytes = data.totalBytes;
 
-    function startProgressMonitor(isNewUpdate) {
-      if (!navigator.onLine) return;
-      ensureProgressBar(
-        isNewUpdate ? 'Downloading update for offline use...' : 'Saving for offline use...'
-      );
-
-      if (checkInterval) clearInterval(checkInterval);
-
-      checkInterval = setInterval(async () => {
-        try {
-          const cacheKeys = await caches.keys();
-          const precacheName = cacheKeys.find((key) => key.includes('workbox-precache'));
-          if (!precacheName) return;
-
-          const cache = await caches.open(precacheName);
-          const cachedRequests = await cache.keys();
-          const currentCount = cachedRequests.length;
-          const estimatedTotal = Math.max(currentCount, 120);
-          let percent = Math.min(Math.round((currentCount / estimatedTotal) * 100), 99);
-
-          const reg = await navigator.serviceWorker.getRegistration();
-          const isInstalling = Boolean(reg && (reg.installing || reg.waiting));
-          if (!isInstalling && currentCount > 100) {
-            percent = 100;
-          }
-
-          const fill = document.getElementById('pwa-progress-fill');
-          const pctText = document.getElementById('pwa-status-pct');
-          if (fill) fill.style.width = percent + '%';
-          if (pctText) pctText.innerText = percent + '%';
-
-          if (percent >= 100) {
-            clearInterval(checkInterval);
-            showReadyToRefresh(isNewUpdate);
-          }
-        } catch (err) {
-          console.error('Cache progress error:', err);
-        }
-      }, 400);
-    }
-
-    if (navigator.onLine && !localStorage.getItem('pwa_fully_cached')) {
-      startProgressMonitor(false);
-    }
-
-    navigator.serviceWorker
-      .register('/sw.js', { updateViaCache: 'none' })
-      .then((reg) => {
-        const hadExistingController = Boolean(navigator.serviceWorker.controller);
-
-        reg.addEventListener('updatefound', () => {
-          const newWorker = reg.installing;
-          if (!newWorker) return;
-
-          if (hadExistingController) {
-            startProgressMonitor(true);
-          }
-
-          newWorker.addEventListener('statechange', () => {
-            if (newWorker.state === 'installed' && hadExistingController) {
-              showReadyToRefresh(true);
+        if (data.type === 'CACHE_STATUS') {
+          if (data.complete) return; // Already fully cached
+          if (data.isDownloading || data.optedIn) {
+            if (!data.isDownloading) {
+              startDownload();
+            } else {
+              renderProgress(data.downloadedBytes || 0, latestTotalBytes);
             }
-          });
-        });
-
-        const checkForUpdate = () => {
-          if (navigator.onLine) {
-            reg.update().catch(() => {});
+            return;
           }
-        };
 
-        checkForUpdate();
-        document.addEventListener('visibilitychange', () => {
-          if (document.visibilityState === 'visible') checkForUpdate();
-        });
-        window.addEventListener('pageshow', checkForUpdate);
-      })
-      .catch((err) => console.error('SW Registration Failed:', err));
-  });
-}
-
-// 3. Scoped Android Install Button Handling
-let deferredPrompt;
-window.addEventListener('beforeinstallprompt', (e) => {
-  e.preventDefault();
-  deferredPrompt = e;
-});
-
-function initAndroidButton() {
-  if (!window.location.pathname.includes('app.html')) return;
-
-  const androidBtns = document.querySelectorAll(
-    'a[href*="android"], .btn-android, #android-install-btn, .btn'
-  );
-  androidBtns.forEach((btn) => {
-    if (btn.textContent && btn.textContent.includes('Android')) {
-      btn.style.cursor = 'pointer';
-      btn.addEventListener('click', async (evt) => {
-        evt.preventDefault();
-        evt.stopPropagation();
-        if (deferredPrompt) {
-          deferredPrompt.prompt();
-          await deferredPrompt.userChoice;
-          deferredPrompt = null;
-        } else {
-          alert('PWA install prompt is ready or app is already installed!');
+          let wasMinimized = false;
+          try { wasMinimized = sessionStorage.getItem(DISMISS_KEY) === '1'; } catch (_) {}
+          if (wasMinimized) {
+            renderMinimizedPill(latestTotalBytes, showPrompt);
+          } else {
+            showPrompt();
+          }
+        } else if (data.type === 'CACHE_PROGRESS') {
+          renderProgress(data.downloadedBytes, data.totalBytes);
+        } else if (data.type === 'CACHE_COMPLETE') {
+          renderComplete(data.totalBytes);
+        } else if (data.type === 'CACHE_ERROR') {
+          renderError(data.message, startDownload, minimizePrompt);
         }
       });
+
+      await navigator.serviceWorker.ready;
+      postToSw({ type: 'GET_CACHE_STATUS' });
+    } catch (err) {
+      console.warn('SW registration failed:', err);
     }
   });
-}
-
-// 4. Live PST Clock Ticker
-function startLivePstClock() {
-  function updatePstClocks() {
-    const nowPST =
-      new Date().toLocaleString('en-US', {
-        timeZone: 'Asia/Manila',
-        dateStyle: 'medium',
-        timeStyle: 'medium',
-        hour12: true
-      }) + ' PST';
-
-    document.querySelectorAll('.pst-live-clock').forEach((clock) => {
-      clock.textContent = nowPST;
-    });
-  }
-
-  updatePstClocks();
-  setInterval(updatePstClocks, 1000);
-}
-
-// 5. Match section.display-7 background & font size to footer while leaving footer itself to HTML/CSS
-function applyFooterBackgroundToDisplay7() {
-  const footerEl = document.querySelector('section#footer, footer, .footer');
-  let footerFontSize = '';
-
-  if (footerEl) {
-    const textProbe = footerEl.querySelector('p, span, a, li, div') || footerEl;
-    const probeStyle = window.getComputedStyle(textProbe);
-    if (probeStyle.fontSize && parseFloat(probeStyle.fontSize) > 0) {
-      footerFontSize = probeStyle.fontSize;
-    }
-  }
-
-  let styleTag = document.getElementById('rorabina-display7-fix');
-  if (!styleTag) {
-    styleTag = document.createElement('style');
-    styleTag.id = 'rorabina-display7-fix';
-    document.head.appendChild(styleTag);
-  }
-
-  const fontSizeRule = footerFontSize ? `font-size: ${footerFontSize} !important;` : '';
-
-  styleTag.textContent = `
-    section.display-7, section.display-7 > div, section.display-7 .container, section.display-7 .row {
-      background-color: #000000 !important;
-      background: #000000 !important;
-    }
-    section.display-7, section.display-7 * {
-      opacity: 1 !important;
-      visibility: visible !important;
-      pointer-events: auto !important;
-    }
-    section.display-7 a, section.display-7 a * {
-      ${fontSizeRule}
-      opacity: 1 !important;
-      visibility: visible !important;
-      display: inline-block !important;
-    }
-  `;
-}
-
-function runAllSwRegisterInit() {
-  initAndroidButton();
-  startLivePstClock();
-  applyFooterBackgroundToDisplay7();
-}
-
-if (document.readyState === 'loading') {
-  document.addEventListener('DOMContentLoaded', runAllSwRegisterInit);
-} else {
-  runAllSwRegisterInit();
-}
-
-window.addEventListener('load', applyFooterBackgroundToDisplay7);
+})();
