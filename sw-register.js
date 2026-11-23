@@ -189,7 +189,21 @@ if ('serviceWorker' in navigator) {
     }
 
     async function loadPrecacheManifest() {
-      let loadedFromManifest = false;
+      const embedded = window.__PRECACHE_MANIFEST__;
+      if (embedded && embedded.files && typeof embedded.files === 'object') {
+        const nextFiles = {};
+        for (const [k, v] of Object.entries(embedded.files)) {
+          nextFiles[normalizePath(k)] = Number(v) || 0;
+        }
+        if (Object.keys(nextFiles).length > 0) {
+          manifestFiles = nextFiles;
+          recalculateTotals();
+          if (Number(embedded.totalBytes) > 0) {
+            totalBytes = Number(embedded.totalBytes);
+          }
+        }
+      }
+
       try {
         const res = await fetch('/precache-manifest.json', { cache: 'no-store' });
         if (res.ok) {
@@ -207,7 +221,6 @@ if ('serviceWorker' in navigator) {
             if (Number(data?.totalBytes) > 0) {
               totalBytes = Number(data.totalBytes);
             }
-            loadedFromManifest = true;
           }
         }
       } catch (err) {
@@ -215,10 +228,7 @@ if ('serviceWorker' in navigator) {
       }
 
       await syncLiveAppFiles();
-
-      if (!loadedFromManifest) {
-        recalculateTotals();
-      }
+      recalculateTotals();
     }
 
     function ensureWidgetContainer() {
@@ -419,177 +429,4 @@ if ('serviceWorker' in navigator) {
       }, 500);
     }
 
-    function registerAndMonitorServiceWorker(isExistingOptIn) {
-      if (navigator.onLine && !localStorage.getItem('pwa_fully_cached')) {
-        startProgressMonitor(false);
-      }
-
-      navigator.serviceWorker
-        .register('/sw.js', { updateViaCache: 'none' })
-        .then((reg) => {
-          const hadExistingController = Boolean(navigator.serviceWorker.controller);
-
-          reg.addEventListener('updatefound', () => {
-            const newWorker = reg.installing;
-            if (!newWorker) return;
-
-            if (hadExistingController) {
-              startProgressMonitor(true);
-            }
-
-            newWorker.addEventListener('statechange', () => {
-              if (newWorker.state === 'installed' && hadExistingController) {
-                showReadyToRefresh(true);
-              }
-            });
-          });
-
-          const checkForUpdate = () => {
-            if (navigator.onLine) {
-              reg.update().catch(() => {});
-              warmAppPagesCache();
-            }
-          };
-
-          if (isExistingOptIn) {
-            checkForUpdate();
-          }
-          document.addEventListener('visibilitychange', () => {
-            if (document.visibilityState === 'visible') checkForUpdate();
-          });
-          window.addEventListener('pageshow', checkForUpdate);
-        })
-        .catch((err) => console.error('SW Registration Failed:', err));
-    }
-
-    await loadPrecacheManifest();
-    baselineUsageBytes = await getStorageUsageBytes();
-
-    const hasOptedIn =
-      localStorage.getItem(OPT_IN_KEY) === 'true' ||
-      localStorage.getItem('pwa_fully_cached') === 'true';
-
-    if (hasOptedIn) {
-      registerAndMonitorServiceWorker(true);
-      warmAppPagesCache();
-    } else {
-      const existingReg = await navigator.serviceWorker.getRegistration();
-      if (existingReg) {
-        await existingReg.unregister();
-      }
-      if (localStorage.getItem(MINIMIZED_KEY) === 'true') {
-        renderMinimizedPill();
-      } else {
-        renderOptInPrompt();
-      }
-    }
-  });
-}
-
-// 3. Scoped Android Install Button Handling
-let deferredPrompt;
-window.addEventListener('beforeinstallprompt', (e) => {
-  e.preventDefault();
-  deferredPrompt = e;
-});
-
-function initAndroidButton() {
-  if (!window.location.pathname.includes('app.html')) return;
-
-  const androidBtns = document.querySelectorAll(
-    'a[href*="android"], .btn-android, #android-install-btn, .btn'
-  );
-  androidBtns.forEach((btn) => {
-    if (btn.textContent && btn.textContent.includes('Android')) {
-      btn.style.cursor = 'pointer';
-      btn.addEventListener('click', async (evt) => {
-        evt.preventDefault();
-        evt.stopPropagation();
-        if (deferredPrompt) {
-          deferredPrompt.prompt();
-          await deferredPrompt.userChoice;
-          deferredPrompt = null;
-        } else {
-          alert('PWA install prompt is ready or app is already installed!');
-        }
-      });
-    }
-  });
-}
-
-// 4. Live PST Clock Ticker (Fallback for .pst-live-clock elements without overwriting #live-clock)
-function startLivePstClock() {
-  function updatePstClocks() {
-    const nowPST =
-      new Date().toLocaleString('en-US', {
-        timeZone: 'Asia/Manila',
-        dateStyle: 'medium',
-        timeStyle: 'medium',
-        hour12: true
-      }) + ' PST';
-
-    document.querySelectorAll('.pst-live-clock').forEach((clock) => {
-      if (!clock.querySelector('#live-clock')) {
-        clock.textContent = nowPST;
-      }
-    });
-  }
-
-  updatePstClocks();
-  setInterval(updatePstClocks, 1000);
-}
-
-// 5. Match section.display-7 background & font size to footer while leaving footer itself to HTML/CSS
-function applyFooterBackgroundToDisplay7() {
-  const footerEl = document.querySelector('section#footer, footer, .footer');
-  let footerFontSize = '';
-
-  if (footerEl) {
-    const textProbe = footerEl.querySelector('p, span, a, li, div') || footerEl;
-    const probeStyle = window.getComputedStyle(textProbe);
-    if (probeStyle.fontSize && parseFloat(probeStyle.fontSize) > 0) {
-      footerFontSize = probeStyle.fontSize;
-    }
-  }
-
-  let styleTag = document.getElementById('rorabina-display7-fix');
-  if (!styleTag) {
-    styleTag = document.createElement('style');
-    styleTag.id = 'rorabina-display7-fix';
-    document.head.appendChild(styleTag);
-  }
-
-  const fontSizeRule = footerFontSize ? `font-size: ${footerFontSize} !important;` : '';
-
-  styleTag.textContent = `
-    section.display-7, section.display-7 > div, section.display-7 .container, section.display-7 .row {
-      background-color: #000000 !important;
-      background: #000000 !important;
-    }
-    section.display-7, section.display-7 * {
-      opacity: 1 !important;
-      visibility: visible !important;
-      pointer-events: auto !important;
-    }
-    section.display-7 a, section.display-7 a * {
-      ${fontSizeRule}
-      opacity: 1 !important;
-      visibility: visible !important;
-      display: inline-block !important;
-    }
-  `;
-}
-
-function runAllSwRegisterInit() {
-  initAndroidButton();
-  startLivePstClock();
-  applyFooterBackgroundToDisplay7();
-}
-
-if (document.readyState === 'loading') {
-  document.addEventListener('DOMContentLoaded', runAllSwRegisterInit);
-} else {
-  runAllSwRegisterInit();
-}
-
-window.addEventListener('load', applyFooterBackgroundToDisplay7);
+    function registerAndMonitorServiceWorker(isExistingOptIn)
