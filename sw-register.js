@@ -289,14 +289,13 @@ if ('serviceWorker' in navigator) {
             }
           }
 
-          // Track live storage usage growth while Workbox streams precache entries
           const usageNow = await getStorageUsageBytes();
           const deltaStorageBytes = Math.max(0, usageNow - baselineUsageBytes);
           const cappedStorageBytes = totalBytes > 0 ? Math.min(deltaStorageBytes, totalBytes) : deltaStorageBytes;
-          const downloadedBytes = Math.max(manifestMatchedBytes, cappedStorageBytes);
+          let downloadedBytes = Math.max(manifestMatchedBytes, cappedStorageBytes);
 
           const totalCount = Math.max(manifestUrls.length, currentCount, 1);
-          const estimatedCount =
+          let estimatedCount =
             currentCount > 0
               ? Math.min(currentCount, totalCount)
               : totalBytes > 0
@@ -309,10 +308,12 @@ if ('serviceWorker' in navigator) {
               : Math.min(Math.round((estimatedCount / totalCount) * 100), 99);
 
           const reg = await navigator.serviceWorker.getRegistration();
-          const isInstalling = Boolean(reg && (reg.installing || reg.waiting));
-          if (!isInstalling && manifestUrls.length > 0 && currentCount >= manifestUrls.length) {
+          const isStillInstalling = Boolean(reg && reg.installing);
+          const allPrecached = manifestUrls.length > 0 && currentCount >= manifestUrls.length;
+
+          if (!isStillInstalling && allPrecached) {
             percent = 100;
-            downloadedBytes = Math.max(totalBytes, downloadedBytes);
+            downloadedBytes = totalBytes > 0 ? totalBytes : downloadedBytes;
             estimatedCount = manifestUrls.length;
           }
 
