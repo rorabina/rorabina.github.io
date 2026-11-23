@@ -60,13 +60,14 @@ if ('serviceWorker' in navigator) {
 
     function recalculateTotals() {
       manifestUrls = Object.keys(manifestFiles);
-      totalBytes = Object.values(manifestFiles).reduce((sum, val) => sum + (Number(val) || 0), 0);
+      const sum = Object.values(manifestFiles).reduce((acc, val) => acc + (Number(val) || 0), 0);
+      if (sum > 0) totalBytes = sum;
     }
 
     async function syncLiveAppFiles() {
       if (!navigator.onLine) return;
       try {
-        const cacheKey = 'rorabina_app_tree_cache_v1';
+        const cacheKey = 'rorabina_app_tree_cache_v2';
         let items = null;
         try {
           const raw = sessionStorage.getItem(cacheKey);
@@ -117,29 +118,27 @@ if ('serviceWorker' in navigator) {
     async function loadPrecacheManifest() {
       const embedded = window.__PRECACHE_MANIFEST__;
       if (embedded && embedded.files && typeof embedded.files === 'object') {
-        const next = {};
-        for (const [k, v] of Object.entries(embedded.files)) next[normalizePath(k)] = Number(v) || 0;
-        if (Object.keys(next).length > 0) {
-          manifestFiles = next;
-          recalculateTotals();
-          if (Number(embedded.totalBytes) > 0) totalBytes = Number(embedded.totalBytes);
+        for (const [k, v] of Object.entries(embedded.files)) {
+          manifestFiles[normalizePath(k)] = Number(v) || 0;
         }
+        recalculateTotals();
+        if (Number(embedded.totalBytes) > totalBytes) totalBytes = Number(embedded.totalBytes);
       }
+
       try {
         const res = await fetch('/precache-manifest.json', { cache: 'no-store' });
         if (res.ok) {
           const data = await res.json();
-          const next = {};
-          for (const [k, v] of Object.entries(data?.files || {})) next[normalizePath(k)] = Number(v) || 0;
-          if (Object.keys(next).length > 0) {
-            manifestFiles = next;
-            recalculateTotals();
-            if (Number(data?.totalBytes) > 0) totalBytes = Number(data.totalBytes);
+          for (const [k, v] of Object.entries(data?.files || {})) {
+            manifestFiles[normalizePath(k)] = Number(v) || 0;
           }
+          recalculateTotals();
+          if (Number(data?.totalBytes) > totalBytes) totalBytes = Number(data.totalBytes);
         }
       } catch (err) {
         console.warn('Could not load precache-manifest.json:', err);
       }
+
       await syncLiveAppFiles();
       recalculateTotals();
     }
