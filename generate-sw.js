@@ -125,11 +125,24 @@ module.exports = async function generateServiceWorker() {
   const totalBytes =
     calculatedBytes > 0 ? calculatedBytes : Number(size) || 0;
 
+  const manifestPayload = { totalBytes, count: totalCount, files };
   fs.writeFileSync(
     path.join('./', 'precache-manifest.json'),
-    JSON.stringify({ totalBytes, count: totalCount, files }, null, 2),
+    JSON.stringify(manifestPayload, null, 2),
     'utf8'
   );
+
+  // Also embed the manifest into sw-register.js at build time so it never falls back to 111 KB
+  const swRegisterPath = path.join('./', 'sw-register.js');
+  if (fs.existsSync(swRegisterPath)) {
+    const existingSwReg = fs.readFileSync(swRegisterPath, 'utf8');
+    const cleanedSwReg = existingSwReg.replace(
+      /^window\.__PRECACHE_MANIFEST__\s*=\s*[\s\S]*?;\n/,
+      ''
+    );
+    const banner = `window.__PRECACHE_MANIFEST__ = ${JSON.stringify(manifestPayload)};\n`;
+    fs.writeFileSync(swRegisterPath, banner + cleanedSwReg, 'utf8');
+  }
 
   console.log(
     `Successfully generated sw.js: ${totalCount} files (${totalBytes} bytes) including ${remoteAppFiles.length} live /app/ files.`
