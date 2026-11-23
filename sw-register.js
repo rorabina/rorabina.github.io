@@ -73,6 +73,7 @@ if ('serviceWorker' in navigator) {
     let manifestFiles = {};
     let manifestUrls = [];
     let totalBytes = 0;
+    let baselineUsageBytes = 0;
 
     function normalizePath(pathname) {
       if (!pathname || pathname === '/') return '/index.html';
@@ -83,6 +84,16 @@ if ('serviceWorker' in navigator) {
       if (!bytes || bytes <= 0) return '0.00 MB';
       const mb = bytes / (1024 * 1024);
       return mb >= 1 ? `${mb.toFixed(2)} MB` : `${Math.max(1, Math.round(bytes / 1024))} KB`;
+    }
+
+    async function getStorageUsageBytes() {
+      try {
+        if (navigator.storage && typeof navigator.storage.estimate === 'function') {
+          const est = await navigator.storage.estimate();
+          return Number(est.usage) || 0;
+        }
+      } catch (_) {}
+      return 0;
     }
 
     async function loadPrecacheManifest() {
@@ -119,7 +130,7 @@ if ('serviceWorker' in navigator) {
           #pwa-cache-status { position: fixed; bottom: 20px; right: 20px; z-index: 99999; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; font-size: 13px; transition: opacity 0.3s ease, transform 0.3s ease; }
           .pwa-card { background: rgba(18, 18, 18, 0.94); color: #ffffff; padding: 14px 16px; border-radius: 12px; box-shadow: 0 8px 24px rgba(0,0,0,0.38); backdrop-filter: blur(8px); display: flex; flex-direction: column; gap: 9px; min-width: 270px; max-width: 340px; border: 1px solid rgba(255,255,255,0.12); }
           .pwa-progress-track { width: 100%; height: 6px; background: rgba(255, 255, 255, 0.2); border-radius: 3px; overflow: hidden; }
-          .pwa-progress-fill { height: 100%; width: 0%; background: #3b82f6; transition: width 0.2s ease-out; }
+          .pwa-progress-fill { height: 100%; width: 0%; background: #3b82f6; transition: width 0.25s ease-out; }
           .pwa-text-row { display: flex; justify-content: space-between; align-items: center; gap: 8px; font-weight: 600; }
           .pwa-sub-row { display: flex; justify-content: space-between; align-items: center; gap: 8px; font-size: 11.5px; color: #cbd5e1; font-variant-numeric: tabular-nums; }
           .pwa-desc { font-size: 12.5px; color: #cbd5e1; line-height: 1.4; }
@@ -177,7 +188,8 @@ if ('serviceWorker' in navigator) {
         renderMinimizedPill();
       });
 
-      container.querySelector('.pwa-btn-yes').addEventListener('click', () => {
+      container.querySelector('.pwa-btn-yes').addEventListener('click', async () => {
+        baselineUsageBytes = await getStorageUsageBytes();
         localStorage.setItem(OPT_IN_KEY, 'true');
         localStorage.removeItem(MINIMIZED_KEY);
         registerAndMonitorServiceWorker(false);
@@ -248,47 +260,63 @@ if ('serviceWorker' in navigator) {
         try {
           const cacheKeys = await caches.keys();
           const precacheName = cacheKeys.find((key) => key.includes('workbox-precache'));
-          if (!precacheName) return;
 
-          const cache = await caches.open(precacheName);
-          const cachedRequests = await cache.keys();
-          const currentCount = cachedRequests.length;
-          const totalCount = Math.max(manifestUrls.length, currentCount, 1);
-
-          let downloadedBytes = 0;
+          let currentCount = 0;
+          let manifestMatchedBytes = 0;
           const seenPaths = new Set();
 
-          for (const req of cachedRequests) {
-            try {
-              const normPath = normalizePath(new URL(req.url).pathname);
-              if (seenPaths.has(normPath)) continue;
-              seenPaths.add(normPath);
+          if (precacheName) {
+            const cache = await caches.open(precacheName);
+            const cachedRequests = await cache.keys();
+            currentCount = cachedRequests.length;
 
-              if (typeof manifestFiles[normPath] === 'number') {
-                downloadedBytes += manifestFiles[normPath];
-              } else {
-                const resp = await cache.match(req);
-                if (resp) {
-                  const blob = await resp.clone().blob();
-                  downloadedBytes += blob.size;
+            for (const req of cachedRequests) {
+              try {
+                const normPath = normalizePath(new URL(req.url).pathname);
+                if (seenPaths.has(normPath)) continue;
+                seenPaths.add(normPath);
+
+                if (typeof manifestFiles[normPath] === 'number') {
+                  manifestMatchedBytes += manifestFiles[normPath];
+                } else {
+                  const resp = await cache.match(req);
+                  if (resp) {
+                    const blob = await resp.clone().blob();
+                    manifestMatchedBytes += blob.size;
+                  }
                 }
-              }
-            } catch (_) {}
+              } catch (_) {}
+            }
           }
+
+          // Track live storage usage growth while Workbox streams precache entries
+          const usageNow = await getStorageUsageBytes();
+          const deltaStorageBytes = Math.max(0, usageNow - baselineUsageBytes);
+          const cappedStorageBytes = totalBytes > 0 ? Math.min(deltaStorageBytes, totalBytes) : deltaStorageBytes;
+          const downloadedBytes = Math.max(manifestMatchedBytes, cappedStorageBytes);
+
+          const totalCount = Math.max(manifestUrls.length, currentCount, 1);
+          const estimatedCount =
+            currentCount > 0
+              ? Math.min(currentCount, totalCount)
+              : totalBytes > 0
+              ? Math.min(manifestUrls.length, Math.round((downloadedBytes / totalBytes) * manifestUrls.length))
+              : 0;
 
           let percent =
             totalBytes > 0
               ? Math.min(Math.round((downloadedBytes / totalBytes) * 100), 99)
-              : Math.min(Math.round((currentCount / totalCount) * 100), 99);
+              : Math.min(Math.round((estimatedCount / totalCount) * 100), 99);
 
           const reg = await navigator.serviceWorker.getRegistration();
           const isInstalling = Boolean(reg && (reg.installing || reg.waiting));
-          if (!isInstalling && currentCount >= manifestUrls.length && manifestUrls.length > 0) {
+          if (!isInstalling && manifestUrls.length > 0 && currentCount >= manifestUrls.length) {
             percent = 100;
             downloadedBytes = Math.max(totalBytes, downloadedBytes);
+            estimatedCount = manifestUrls.length;
           }
 
-          renderProgressUI(label, downloadedBytes, percent, Math.min(currentCount, totalCount), totalCount);
+          renderProgressUI(label, downloadedBytes, percent, estimatedCount, totalCount);
 
           if (percent >= 100) {
             clearInterval(checkInterval);
@@ -343,6 +371,7 @@ if ('serviceWorker' in navigator) {
     }
 
     await loadPrecacheManifest();
+    baselineUsageBytes = await getStorageUsageBytes();
 
     const hasOptedIn =
       localStorage.getItem(OPT_IN_KEY) === 'true' ||
