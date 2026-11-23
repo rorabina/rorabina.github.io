@@ -67,6 +67,8 @@ if ('serviceWorker' in navigator) {
   window.addEventListener('load', async () => {
     const OPT_IN_KEY = 'pwa_offline_opt_in';
     const MINIMIZED_KEY = 'pwa_offline_minimized';
+    const APP_API_URL = 'https://api.github.com/repos/rorabina/app/contents/?ref=gh-pages';
+    const APP_CACHE_NAME = 'rorabina-web-utilities-app';
     let barContainer = document.getElementById('pwa-cache-status');
     let checkInterval = null;
     let manualReloadPending = false;
@@ -96,6 +98,77 @@ if ('serviceWorker' in navigator) {
       return 0;
     }
 
+    async function syncLiveAppFiles() {
+      if (!navigator.onLine) return;
+      try {
+        const cacheKey = 'rorabina_app_files_cache_v1';
+        let items = null;
+
+        try {
+          const cachedRaw = sessionStorage.getItem(cacheKey);
+          if (cachedRaw) {
+            const parsed = JSON.parse(cachedRaw);
+            if (parsed && Date.now() - parsed.ts < 10 * 60 * 1000 && Array.isArray(parsed.items)) {
+              items = parsed.items;
+            }
+          }
+        } catch (_) {}
+
+        if (!items) {
+          const res = await fetch(APP_API_URL, { headers: { Accept: 'application/vnd.github+json' } });
+          if (!res.ok) return;
+          const data = await res.json();
+          if (!Array.isArray(data)) return;
+
+          items = data
+            .filter((entry) => entry && entry.type === 'file' && entry.name && entry.name.toLowerCase() !== 'readme.md')
+            .map((entry) => ({
+              path: `/app/${entry.name}`,
+              size: Number(entry.size) || 0,
+              sha: entry.sha || ''
+            }));
+
+          try {
+            sessionStorage.setItem(cacheKey, JSON.stringify({ ts: Date.now(), items }));
+          } catch (_) {}
+        }
+
+        let updated = false;
+        for (const item of items) {
+          if (!(item.path in manifestFiles)) {
+            manifestFiles[item.path] = item.size;
+            updated = true;
+          }
+        }
+
+        if (updated) {
+          manifestUrls = Object.keys(manifestFiles);
+          totalBytes = Object.values(manifestFiles).reduce((a, b) => a + b, 0);
+        }
+      } catch (_) {}
+    }
+
+    async function warmAppPagesCache() {
+      if (!navigator.onLine || !('caches' in window)) return;
+      const appUrls = manifestUrls.filter((u) => u.startsWith('/app/'));
+      if (!appUrls.length) return;
+
+      try {
+        const appCache = await caches.open(APP_CACHE_NAME);
+        await Promise.all(
+          appUrls.map(async (relPath) => {
+            const fullUrl = `${window.location.origin}${relPath}`;
+            try {
+              const resp = await fetch(fullUrl, { cache: 'reload' });
+              if (resp && resp.ok) {
+                await appCache.put(fullUrl, resp);
+              }
+            } catch (_) {}
+          })
+        );
+      } catch (_) {}
+    }
+
     async function loadPrecacheManifest() {
       try {
         const res = await fetch('/precache-manifest.json', { cache: 'no-store' });
@@ -115,6 +188,8 @@ if ('serviceWorker' in navigator) {
       } catch (err) {
         console.warn('Could not load precache-manifest.json:', err);
       }
+
+      await syncLiveAppFiles();
     }
 
     function ensureWidgetContainer() {
@@ -193,6 +268,7 @@ if ('serviceWorker' in navigator) {
         localStorage.setItem(OPT_IN_KEY, 'true');
         localStorage.removeItem(MINIMIZED_KEY);
         registerAndMonitorServiceWorker(false);
+        warmAppPagesCache();
       });
     }
 
@@ -342,6 +418,7 @@ if ('serviceWorker' in navigator) {
           const checkForUpdate = () => {
             if (navigator.onLine) {
               reg.update().catch(() => {});
+              warmAppPagesCache();
             }
           };
 
@@ -365,6 +442,7 @@ if ('serviceWorker' in navigator) {
 
     if (hasOptedIn) {
       registerAndMonitorServiceWorker(true);
+      warmAppPagesCache();
     } else {
       const existingReg = await navigator.serviceWorker.getRegistration();
       if (existingReg) {
